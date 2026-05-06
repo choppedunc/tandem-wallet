@@ -229,15 +229,38 @@ function DetailRow({
   );
 }
 
-function TransactionLink({ signature }: { signature: string }) {
+function toggleOnActivationKey(
+  event: React.KeyboardEvent<HTMLElement>,
+  onToggle: () => void
+) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  onToggle();
+}
+
+function TransactionLink({
+  signature,
+  children,
+  className,
+  stopPropagation,
+}: {
+  signature: string;
+  children?: React.ReactNode;
+  className?: string;
+  stopPropagation?: boolean;
+}) {
   return (
     <a
       href={explorerTxUrl(signature)}
       target="_blank"
       rel="noreferrer"
-      className="text-accent hover:text-text underline underline-offset-4"
+      onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}
+      className={
+        className ??
+        "text-accent hover:text-text underline underline-offset-4"
+      }
     >
-      {signature}
+      {children ?? signature}
     </a>
   );
 }
@@ -531,17 +554,19 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
         <div className="space-y-2">
           {rows.map((row) => {
             const expanded = expandedItem === row.id;
+            const toggleExpanded = () =>
+              setExpandedItem((current) => (current === row.id ? null : row.id));
 
             if (row.kind === "direct-send") {
               const transfer = row.transfer;
               return (
                 <div key={row.id} className={historyCardClass(expanded)}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setExpandedItem((current) => (current === row.id ? null : row.id))
-                    }
-                    className="w-full text-left"
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={toggleExpanded}
+                    onKeyDown={(event) => toggleOnActivationKey(event, toggleExpanded)}
+                    className="w-full cursor-pointer text-left"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
@@ -557,9 +582,13 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
                         <div className="mt-1 truncate text-sm text-muted font-display">
                           {shortAddress(transfer.recipient.toBase58(), 6)}
                         </div>
-                        <div className="mt-2 truncate text-xs text-accent font-display">
+                        <TransactionLink
+                          signature={transfer.signature}
+                          stopPropagation
+                          className="mt-2 block truncate text-xs text-accent font-display hover:text-text underline underline-offset-4"
+                        >
                           Tx {transfer.signature}
-                        </div>
+                        </TransactionLink>
                       </div>
                       <div className="text-sm text-muted font-display sm:text-right">
                         {formatUnixDate(transfer.blockTime)}
@@ -568,7 +597,7 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
                         </span>
                       </div>
                     </div>
-                  </button>
+                  </div>
 
                   {expanded && (
                     <ExpandedDirectSendDetails transfer={transfer} vault={vault} />
@@ -584,12 +613,12 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
 
             return (
               <div key={row.id} className={historyCardClass(expanded)}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExpandedItem((current) => (current === row.id ? null : row.id))
-                  }
-                  className="w-full text-left"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={toggleExpanded}
+                  onKeyDown={(event) => toggleOnActivationKey(event, toggleExpanded)}
+                  className="w-full cursor-pointer text-left"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
@@ -609,9 +638,13 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
                         <div className="mt-2 text-sm text-muted">{proposal.memo}</div>
                       )}
                       {transaction && (
-                        <div className="mt-2 truncate text-xs text-accent font-display">
+                        <TransactionLink
+                          signature={transaction.signature}
+                          stopPropagation
+                          className="mt-2 block truncate text-xs text-accent font-display hover:text-text underline underline-offset-4"
+                        >
                           Tx {transaction.signature}
-                        </div>
+                        </TransactionLink>
                       )}
                     </div>
                     <div className="text-sm text-muted font-display sm:text-right">
@@ -621,7 +654,7 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
                       </span>
                     </div>
                   </div>
-                </button>
+                </div>
 
                 {expanded && (
                   <ExpandedProposalDetails
