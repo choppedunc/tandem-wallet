@@ -345,7 +345,7 @@ export function CreateVaultForm({
                 <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button
                     type="button"
-                    onClick={() => setConfirmationStep("stored")}
+                    onClick={() => setConfirmationStep(null)}
                     disabled={submitting}
                     className="border border-line-soft px-4 py-2 text-sm font-display uppercase tracking-[0.14em] text-muted hover:text-text disabled:opacity-50"
                   >
