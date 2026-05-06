@@ -159,12 +159,15 @@ export function Dashboard() {
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {vaults.map((vault) => {
                 const address = vault.address.toBase58();
-                const selected = address === selectedVault.address.toBase58();
+                const selected = !showCreateVault && address === selectedVault.address.toBase58();
                 return (
                   <button
                     key={address}
                     type="button"
-                    onClick={() => setSelectedVaultAddress(address)}
+                    onClick={() => {
+                      setSelectedVaultAddress(address);
+                      setShowCreateVault(false);
+                    }}
                     className={`min-w-0 border px-3 py-2 text-left transition-colors ${
                       selected
                         ? "border-line bg-[rgba(10,186,181,0.08)] text-text"
@@ -183,7 +186,9 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setShowCreateVault((visible) => !visible)}
-                className="min-h-[4.5rem] border border-line-soft bg-[linear-gradient(135deg,#0abab5,#6de7e3)] px-4 py-3 text-left text-[#032b2a] shadow-[0_10px_26px_rgba(10,186,181,0.18)] transition-transform hover:-translate-y-px"
+                className={`min-h-[4.5rem] border bg-[linear-gradient(135deg,#0abab5,#6de7e3)] px-4 py-3 text-left text-[#032b2a] shadow-[0_10px_26px_rgba(10,186,181,0.18)] transition-transform hover:-translate-y-px ${
+                  showCreateVault ? "border-line" : "border-line-soft"
+                }`}
               >
                 <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display text-[#064240]">
                   New
