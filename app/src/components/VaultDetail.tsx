@@ -25,6 +25,7 @@ export type VaultData = {
 };
 
 type Tab = "overview" | "proposals" | "history" | "settings" | "whitelist";
+const LIVE_REFRESH_INTERVAL_MS = 15_000;
 
 function Stat({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) {
   return (
@@ -55,27 +56,18 @@ export function VaultDetail({
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [pendingProposalCount, setPendingProposalCount] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [acct, sol] = await Promise.all([
-          getAccount(connection, vault.vaultUsdcAta),
-          connection.getBalance(vault.address),
-        ]);
-        if (cancelled) return;
-        setUsdcBalance(acct.amount);
-        setSolBalance(sol);
-      } catch {
-        if (!cancelled) {
-          setUsdcBalance(BigInt(0));
-          setSolBalance(0);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const refreshBalances = useCallback(async () => {
+    try {
+      const [acct, sol] = await Promise.all([
+        getAccount(connection, vault.vaultUsdcAta),
+        connection.getBalance(vault.address),
+      ]);
+      setUsdcBalance(acct.amount);
+      setSolBalance(sol);
+    } catch {
+      setUsdcBalance(BigInt(0));
+      setSolBalance(0);
+    }
   }, [connection, vault.address, vault.vaultUsdcAta]);
 
   const refreshPendingProposalCount = useCallback(async () => {
@@ -96,8 +88,48 @@ export function VaultDetail({
   }, [connection, vault.address, wallet]);
 
   useEffect(() => {
+    refreshBalances();
     refreshPendingProposalCount();
-  }, [refreshPendingProposalCount]);
+  }, [refreshBalances, refreshPendingProposalCount]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshLiveState = () => {
+      if (cancelled) return;
+      void refreshBalances();
+      void refreshPendingProposalCount();
+    };
+
+    const vaultSubscription = connection.onAccountChange(
+      vault.address,
+      () => {
+        refreshLiveState();
+        onChange();
+      },
+      "confirmed"
+    );
+    const vaultUsdcSubscription = connection.onAccountChange(
+      vault.vaultUsdcAta,
+      refreshLiveState,
+      "confirmed"
+    );
+    const interval = window.setInterval(refreshLiveState, LIVE_REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      void connection.removeAccountChangeListener(vaultSubscription);
+      void connection.removeAccountChangeListener(vaultUsdcSubscription);
+    };
+  }, [
+    connection,
+    onChange,
+    refreshBalances,
+    refreshPendingProposalCount,
+    vault.address,
+    vault.vaultUsdcAta,
+  ]);
 
   const handleChange = useCallback(() => {
     refreshPendingProposalCount();

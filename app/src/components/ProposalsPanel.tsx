@@ -43,6 +43,8 @@ type LastTransaction = {
   setupSignature?: string;
 };
 
+const LIVE_REFRESH_INTERVAL_MS = 15_000;
+
 function statusOf(proposal: Proposal): "pending" | "executed" | "cancelled" {
   if (proposal.executed) return "executed";
   if (proposal.cancelled) return "cancelled";
@@ -223,7 +225,31 @@ export function ProposalsPanel({
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+
+    const interval = window.setInterval(() => {
+      refresh();
+    }, LIVE_REFRESH_INTERVAL_MS);
+    const vaultSubscription = connection.onAccountChange(
+      vault.address,
+      () => {
+        refresh();
+      },
+      "confirmed"
+    );
+    const vaultUsdcSubscription = connection.onAccountChange(
+      vault.vaultUsdcAta,
+      () => {
+        refresh();
+      },
+      "confirmed"
+    );
+
+    return () => {
+      window.clearInterval(interval);
+      void connection.removeAccountChangeListener(vaultSubscription);
+      void connection.removeAccountChangeListener(vaultUsdcSubscription);
+    };
+  }, [connection, refresh, vault.address, vault.vaultUsdcAta]);
 
   const visible = useMemo(() => {
     if (!proposals) return [];
