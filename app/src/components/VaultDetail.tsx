@@ -146,19 +146,27 @@ export function VaultDetail({
       </div>
 
       <div className="border-b border-line-soft mb-8">
-        <nav className="flex gap-1 -mb-px">
+        <nav className="flex flex-wrap gap-1 -mb-px">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`px-4 py-3 text-xs font-display uppercase tracking-[0.14em] border-b-2 transition-colors ${
+              className={`inline-flex items-center gap-2 px-4 py-3 text-xs font-display uppercase tracking-[0.14em] border-b-2 transition-colors ${
                 tab === t.id
                   ? "border-accent text-text"
                   : "border-transparent text-muted hover:text-text"
               }`}
             >
-              {t.label}
-              {t.badge ? ` (${t.badge})` : ""}
+              <span>{t.label}</span>
+              {t.badge ? (
+                <span className="inline-flex items-center gap-1.5 text-accent-2">
+                  <span aria-hidden="true" className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#d45f67] opacity-60" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#d45f67] shadow-[0_0_10px_rgba(212,95,103,0.45)]" />
+                  </span>
+                  <span>({t.badge})</span>
+                </span>
+              ) : null}
             </button>
           ))}
         </nav>
