@@ -75,6 +75,7 @@ export function CreateVaultForm({
   const [limit, setLimit] = useState("50");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmationStep, setConfirmationStep] = useState<"stored" | "risk" | null>(null);
 
   function generateAgent() {
     const kp = Keypair.generate();
@@ -82,8 +83,7 @@ export function CreateVaultForm({
     setGeneratedSecret(bs58.encode(kp.secretKey));
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function createVault() {
     if (!wallet) return;
     setError(null);
     setSubmitting(true);
@@ -138,6 +138,16 @@ export function CreateVaultForm({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (agentMode === "generate" && generatedPubkey && generatedSecret) {
+      setError(null);
+      setConfirmationStep("stored");
+      return;
+    }
+    void createVault();
   }
 
   return (
@@ -285,6 +295,79 @@ export function CreateVaultForm({
           {submitting ? "Creating…" : "Create vault"}
         </button>
       </form>
+
+      {confirmationStep && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="brackets max-w-lg p-6 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+            {confirmationStep === "stored" ? (
+              <>
+                <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-accent-2">
+                  Agent key check
+                </p>
+                <h2 className="mb-3 font-display text-2xl font-bold text-text">
+                  Have you stored the agent secret key?
+                </h2>
+                <p className="text-sm text-muted">
+                  Confirm that the generated secret key has been saved somewhere
+                  safe that only your agent can read.
+                </p>
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmationStep(null)}
+                    className="border border-line-soft px-4 py-2 text-sm font-display uppercase tracking-[0.14em] text-muted hover:text-text"
+                  >
+                    Go back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmationStep("risk")}
+                    className="brackets-accent px-4 py-2 text-sm font-bold uppercase tracking-[0.14em] text-[#032b2a]"
+                  >
+                    Yes, stored
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-accent">
+                  Final confirmation
+                </p>
+                <h2 className="mb-3 font-display text-2xl font-bold text-text">
+                  Are you sure the agent key is stored?
+                </h2>
+                <p className="text-sm text-muted">
+                  If this key is lost or misplaced, your agent will not be able
+                  to make transactions from this vault. Your human wallet can
+                  still move funds manually, but automation will stop until you
+                  migrate to a new vault or agent.
+                </p>
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmationStep("stored")}
+                    disabled={submitting}
+                    className="border border-line-soft px-4 py-2 text-sm font-display uppercase tracking-[0.14em] text-muted hover:text-text disabled:opacity-50"
+                  >
+                    Review key
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmationStep(null);
+                      void createVault();
+                    }}
+                    disabled={submitting}
+                    className="brackets-accent px-4 py-2 text-sm font-bold uppercase tracking-[0.14em] text-[#032b2a] disabled:opacity-50"
+                  >
+                    {submitting ? "Creating…" : "Create vault"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
