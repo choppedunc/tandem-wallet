@@ -1,6 +1,12 @@
 export const config = {
-  agentPrivateKey: "oKQFn18nm6i3kJan48BJ2RNUhU7SRh9FtjQY1yBGLF8CyXpME8EptogcGZo3ZAYdtX5n6764EGVPSJKGZvsYtJm",
-  vaultAddress: "C4Cn5s5JQ8cWWf3HWi7zkYt3aE2pkwVHF1gfDJ742JC8",
-  rpcUrl: "https://api.devnet.solana.com",
-  programId: "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ",
+  agentPrivateKey:
+    process.env.TANDEM_AGENT_PRIVATE_KEY ??
+    "AKivfyRmLxbzDewkGkD28FNU9U5aNsKKKoZBQNjEjvGX2UsQiZ88yuEh8Q4u8opH8odDD2f1NXSjARwMNzR2SPD",
+  vaultAddress:
+    process.env.TANDEM_VAULT_ADDRESS ??
+    "QKaKEKgnrDSk6KxCdj7bhSNEkQxzq8E9KYoebWQmybP",
+  rpcUrl: process.env.TANDEM_RPC_URL ?? "https://api.devnet.solana.com",
+  programId:
+    process.env.TANDEM_PROGRAM_ID ??
+    "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ",
 };

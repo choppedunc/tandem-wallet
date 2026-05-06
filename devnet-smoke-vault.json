@@ -1,0 +1,12 @@
+{
+  "status": "initialized",
+  "signature": "4NSD89jcDCThyh1vLh21iWr5Frka2CvrJG4JLtCEHLjQjk2SVgAzdbJcXVcvJ4YLRHCXvQTvD5JryBJu3yCK1Wks",
+  "programId": "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ",
+  "human": "8xHUMWrqNC1wzx55woLn5p6r3jXwftdR9yHncU7cGDKQ",
+  "agent": "6z4keFCLXYz1CVLbA9yQv2GTq2AQ8TXroMVqHz9x3vCx",
+  "vault": "4k7aTqyTr4yKyg1jxZ7BBXnE7DRfR5aWShxb5T9zm6A8",
+  "vaultUsdcAta": "EGGUieyFpmT49k6fgSjK3dtQiEh65ba16sQcqTPzzGEd",
+  "usdcMint": "BPy1fp1Hb1v6Rr41ayPs8ttRUrjjNqkApudTiinNucg3",
+  "spendingLimitRaw": "50000000",
+  "spendingLimitUsdc": 50
+}

@@ -7,5 +7,7 @@ test-ledger/
 .DS_Store
 .env
 agent-keypair.json
+devnet-*-keypair.json
+devnet-*-private.json
 *.so
 Cargo.lock

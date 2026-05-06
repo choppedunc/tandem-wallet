@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { PublicKey, Transaction } from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import BN from "bn.js";
 import { getProgram } from "@/lib/program";
 import { protocolConfigPda } from "@/lib/pdas";
@@ -75,6 +80,40 @@ export function ProposalsPanel({
     setBusy(p.pda.toBase58());
     setError(null);
     try {
+      const recipientAtaAccount = await connection.getAccountInfo(p.recipientAta);
+      if (!recipientAtaAccount) {
+        const expectedRecipientAta = getAssociatedTokenAddressSync(
+          vault.usdcMint,
+          p.recipient,
+          true
+        );
+        if (!expectedRecipientAta.equals(p.recipientAta)) {
+          throw new Error(
+            "Recipient token account is missing and is not the expected associated token account."
+          );
+        }
+
+        const tx = new Transaction().add(
+          createAssociatedTokenAccountInstruction(
+            wallet!.publicKey,
+            p.recipientAta,
+            p.recipient,
+            vault.usdcMint,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
+          )
+        );
+        const latestBlockhash = await connection.getLatestBlockhash();
+        tx.feePayer = wallet!.publicKey;
+        tx.recentBlockhash = latestBlockhash.blockhash;
+        const signedTx = await wallet!.signTransaction(tx);
+        const signature = await connection.sendRawTransaction(signedTx.serialize());
+        await connection.confirmTransaction(
+          { signature, ...latestBlockhash },
+          "confirmed"
+        );
+      }
+
       const protocolConfig = protocolConfigPda();
       const cfg = await (program.account as any).protocolConfig.fetch(protocolConfig);
       await (program.methods as any)
