@@ -43,6 +43,7 @@ type HistoryResponse = {
       recordedAt: string;
       blockTime: number | null;
       slot: number;
+      fee?: string;
     }
   >;
   incomplete: boolean;
@@ -168,6 +169,10 @@ async function fetchVaultHistory(vault: PublicKey): Promise<HistoryResponse> {
               : new Date().toISOString(),
             blockTime,
             slot: transaction.slot,
+            fee:
+              event.name === "ProposalApproved" && data.fee !== undefined
+                ? asBn(data.fee).toString()
+                : undefined,
           };
         }
 

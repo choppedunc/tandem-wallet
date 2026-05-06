@@ -42,6 +42,7 @@ type DirectSendHistoryItem = {
 type HistoryProposalTransaction = ProposalTransactionRecord & {
   blockTime?: number | null;
   slot?: number;
+  fee?: BN;
 };
 
 type ChainEventHistory = {
@@ -62,7 +63,14 @@ type ChainHistoryPayload = {
     fee: string;
     whitelisted: boolean;
   }[];
-  proposalTransactions?: Record<string, HistoryProposalTransaction>;
+  proposalTransactions?: Record<
+    string,
+    ProposalTransactionRecord & {
+      blockTime?: number | null;
+      slot?: number;
+      fee?: string;
+    }
+  >;
   incomplete?: boolean;
   error?: string;
 };
@@ -156,6 +164,7 @@ function mergeTransactionRecords(
       ...record,
       blockTime: chain[proposal]?.blockTime,
       slot: chain[proposal]?.slot,
+      fee: chain[proposal]?.fee,
     };
   });
   return merged;
@@ -283,6 +292,9 @@ function ExpandedProposalDetails({
         <DetailRow label="Proposal PDA" value={proposal.pda.toBase58()} />
         <DetailRow label="Status" value={status} />
         <DetailRow label="Amount" value={formatUsdc(proposal.amount)} />
+        {transaction?.fee !== undefined && (
+          <DetailRow label="Protocol fee" value={formatUsdc(transaction.fee)} />
+        )}
         <DetailRow label="Recipient wallet" value={proposal.recipient.toBase58()} />
         <DetailRow label="Recipient USDC" value={proposal.recipientAta.toBase58()} />
         <DetailRow label="Vault" value={vault.address.toBase58()} />
@@ -405,7 +417,15 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
           fee: asBn(transfer.fee),
           whitelisted: Boolean(transfer.whitelisted),
         })),
-        proposalTransactions: payload.proposalTransactions ?? {},
+        proposalTransactions: Object.fromEntries(
+          Object.entries(payload.proposalTransactions ?? {}).map(([proposal, record]) => [
+            proposal,
+            {
+              ...record,
+              fee: record.fee !== undefined ? asBn(record.fee) : undefined,
+            },
+          ])
+        ),
         incomplete: Boolean(payload.incomplete),
       };
       chainHistoryCache.set(cacheKey, { loadedAt: Date.now(), history });
@@ -580,6 +600,10 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
                           {formatUsdc(transfer.amount)}
                         </div>
                         <div className="mt-1 truncate text-sm text-muted font-display">
+                          {shortAddress(transfer.recipient.toBase58(), 6)}
+                        </div>
+                        <div className="mt-2 text-sm text-muted">
+                          Send {formatUsdc(transfer.amount)} to{" "}
                           {shortAddress(transfer.recipient.toBase58(), 6)}
                         </div>
                         <TransactionLink
