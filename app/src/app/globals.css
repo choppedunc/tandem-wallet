@@ -111,6 +111,45 @@ h3,
   box-shadow: 0 8px 22px rgba(10, 186, 181, 0.22) !important;
 }
 
+.site-wallet-button,
+.site-wallet-button .wallet-adapter-dropdown {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.site-wallet-button .wallet-adapter-button {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 2.35rem !important;
+  padding: 0.48rem 0.72rem !important;
+  font-size: 0.78rem !important;
+  line-height: 1 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.site-wallet-button .wallet-adapter-button-start-icon {
+  width: 1rem !important;
+  height: 1rem !important;
+  margin-right: 0.4rem !important;
+  flex-shrink: 0 !important;
+}
+
+.site-wallet-button .wallet-adapter-dropdown-list {
+  right: 0 !important;
+  left: auto !important;
+  border: 1px solid var(--color-line-soft) !important;
+  border-radius: 0 !important;
+  background: rgba(2, 10, 12, 0.96) !important;
+}
+
+.site-wallet-button .wallet-adapter-dropdown-list-item {
+  border-radius: 0 !important;
+  color: var(--color-text) !important;
+  font-size: 0.82rem !important;
+}
+
 .wallet-adapter-button:not([disabled]):hover {
   background:
     linear-gradient(var(--color-line), var(--color-line)) 0 0 / 12px 1px no-repeat,

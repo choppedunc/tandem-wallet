@@ -19,6 +19,7 @@ import { getProgram } from "@/lib/program";
 import { vaultPda } from "@/lib/pdas";
 import { NETWORK, USDC_MINT } from "@/lib/network";
 import { formatSol, usdcToRaw } from "@/lib/format";
+import { fallbackVaultName } from "@/lib/vaultNames";
 
 const VAULT_ACCOUNT_SIZE = 154;
 const CREATE_VAULT_FEE_BUFFER_LAMPORTS = 20_000;
@@ -37,9 +38,36 @@ function normalizeCreateVaultError(error: unknown): string {
   return String(error);
 }
 
-export function CreateVaultForm({ onCreated }: { onCreated: () => void }) {
+function CopyButton({ value, label }: { value: string | null; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      disabled={!value}
+      className="shrink-0 border border-line-soft px-3 py-1.5 text-[0.65rem] font-display uppercase tracking-[0.14em] text-muted hover:border-line hover:text-text disabled:opacity-50"
+    >
+      {copied ? "Copied" : label}
+    </button>
+  );
+}
+
+export function CreateVaultForm({
+  onCreated,
+}: {
+  onCreated: (vault: PublicKey, name: string) => void;
+}) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
+  const [vaultName, setVaultName] = useState("");
   const [agentMode, setAgentMode] = useState<"generate" | "paste">("generate");
   const [agentPubkeyInput, setAgentPubkeyInput] = useState("");
   const [generatedSecret, setGeneratedSecret] = useState<string | null>(null);
@@ -104,7 +132,7 @@ export function CreateVaultForm({ onCreated }: { onCreated: () => void }) {
         })
         .rpc();
 
-      onCreated();
+      onCreated(vault, vaultName.trim() || fallbackVaultName(vault));
     } catch (e: any) {
       setError(normalizeCreateVaultError(e));
     } finally {
@@ -126,6 +154,19 @@ export function CreateVaultForm({ onCreated }: { onCreated: () => void }) {
       </p>
 
       <form onSubmit={submit} className="space-y-7">
+        <div>
+          <label className="block text-xs uppercase tracking-[0.14em] text-muted font-display mb-3">
+            Vault name
+          </label>
+          <input
+            type="text"
+            value={vaultName}
+            onChange={(e) => setVaultName(e.target.value)}
+            placeholder="Operations agent"
+            className="w-full px-3 py-2.5 border border-line-soft bg-[rgba(2,10,12,0.7)] text-text font-display text-sm focus:outline-none focus:border-line"
+          />
+        </div>
+
         <div>
           <label className="block text-xs uppercase tracking-[0.14em] text-muted font-display mb-3">
             Agent
@@ -168,16 +209,22 @@ export function CreateVaultForm({ onCreated }: { onCreated: () => void }) {
               ) : (
                 <div className="border border-line-soft p-4 bg-[rgba(10,186,181,0.04)] space-y-3 text-sm">
                   <div>
-                    <div className="text-xs uppercase tracking-[0.14em] text-accent-2 font-display mb-1.5">
-                      Public key (give this to your agent)
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <div className="text-xs uppercase tracking-[0.14em] text-accent-2 font-display">
+                        Public key
+                      </div>
+                      <CopyButton value={generatedPubkey} label="Copy" />
                     </div>
                     <code className="block text-xs break-all font-display text-text">
                       {generatedPubkey}
                     </code>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-[0.14em] text-accent font-display mb-1.5">
-                      Secret key — save this now
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <div className="text-xs uppercase tracking-[0.14em] text-accent font-display">
+                        Secret key
+                      </div>
+                      <CopyButton value={generatedSecret} label="Copy" />
                     </div>
                     <code className="block text-xs break-all font-display text-text">
                       {generatedSecret}

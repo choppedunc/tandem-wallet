@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { getAccount } from "@solana/spl-token";
 import BN from "bn.js";
 import { formatUsdc, formatSol, shortAddress } from "@/lib/format";
+import { getProgram } from "@/lib/program";
 import { VaultOverview } from "./VaultOverview";
+import { ProposalHistoryPanel } from "./ProposalHistoryPanel";
 import { ProposalsPanel } from "./ProposalsPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { WhitelistPanel } from "./WhitelistPanel";
@@ -22,7 +24,7 @@ export type VaultData = {
   proposalCount: BN;
 };
 
-type Tab = "overview" | "proposals" | "settings" | "whitelist";
+type Tab = "overview" | "proposals" | "history" | "settings" | "whitelist";
 
 function Stat({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) {
   return (
@@ -39,9 +41,11 @@ function Stat({ label, value, accent }: { label: string; value: React.ReactNode;
 
 export function VaultDetail({
   vault,
+  vaultName,
   onChange,
 }: {
   vault: VaultData;
+  vaultName?: string;
   onChange: () => void;
 }) {
   const { connection } = useConnection();
@@ -49,6 +53,7 @@ export function VaultDetail({
   const [tab, setTab] = useState<Tab>("overview");
   const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null);
   const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [pendingProposalCount, setPendingProposalCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,14 +78,41 @@ export function VaultDetail({
     };
   }, [connection, vault.address, vault.vaultUsdcAta]);
 
-  const tabs: { id: Tab; label: string }[] = useMemo(
+  const refreshPendingProposalCount = useCallback(async () => {
+    if (!wallet) return;
+    try {
+      const program = getProgram(connection, wallet);
+      const accounts = await (program.account as any).proposal.all([
+        { memcmp: { offset: 8, bytes: vault.address.toBase58() } },
+      ]);
+      setPendingProposalCount(
+        accounts.filter(
+          (account: any) => !account.account.executed && !account.account.cancelled
+        ).length
+      );
+    } catch {
+      setPendingProposalCount(0);
+    }
+  }, [connection, vault.address, wallet]);
+
+  useEffect(() => {
+    refreshPendingProposalCount();
+  }, [refreshPendingProposalCount]);
+
+  const handleChange = useCallback(() => {
+    refreshPendingProposalCount();
+    onChange();
+  }, [onChange, refreshPendingProposalCount]);
+
+  const tabs: { id: Tab; label: string; badge?: number }[] = useMemo(
     () => [
       { id: "overview", label: "Overview" },
-      { id: "proposals", label: "Proposals" },
+      { id: "proposals", label: "Proposals", badge: pendingProposalCount },
+      { id: "history", label: "History" },
       { id: "settings", label: "Settings" },
       { id: "whitelist", label: "Whitelist" },
     ],
-    []
+    [pendingProposalCount]
   );
 
   return (
@@ -91,7 +123,7 @@ export function VaultDetail({
         </p>
         <div className="flex flex-wrap items-baseline justify-between gap-3 mb-5">
           <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-text">
-            {shortAddress(vault.address.toBase58(), 6)}
+            {vaultName ?? shortAddress(vault.address.toBase58(), 6)}
           </h1>
         </div>
 
@@ -126,14 +158,16 @@ export function VaultDetail({
               }`}
             >
               {t.label}
+              {t.badge ? ` (${t.badge})` : ""}
             </button>
           ))}
         </nav>
       </div>
 
       {tab === "overview" && <VaultOverview vault={vault} />}
-      {tab === "proposals" && <ProposalsPanel vault={vault} onChange={onChange} />}
-      {tab === "settings" && <SettingsPanel vault={vault} onChange={onChange} />}
+      {tab === "proposals" && <ProposalsPanel vault={vault} onChange={handleChange} />}
+      {tab === "history" && <ProposalHistoryPanel vault={vault} />}
+      {tab === "settings" && <SettingsPanel vault={vault} onChange={handleChange} />}
       {tab === "whitelist" && <WhitelistPanel vault={vault} />}
     </div>
   );

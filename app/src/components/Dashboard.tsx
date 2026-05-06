@@ -5,6 +5,7 @@ import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { getProgram } from "@/lib/program";
+import { fallbackVaultName, loadVaultNames, saveVaultName } from "@/lib/vaultNames";
 import { CreateVaultForm } from "./CreateVaultForm";
 import { VaultDetail, type VaultData } from "./VaultDetail";
 
@@ -12,6 +13,7 @@ export function Dashboard() {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
   const [vaults, setVaults] = useState<VaultData[] | null>(null);
+  const [vaultNames, setVaultNames] = useState<Record<string, string>>({});
   const [selectedVaultAddress, setSelectedVaultAddress] = useState<string | null>(null);
   const [showCreateVault, setShowCreateVault] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +23,10 @@ export function Dashboard() {
     () => (wallet ? getProgram(connection, wallet) : null),
     [connection, wallet]
   );
+
+  useEffect(() => {
+    setVaultNames(loadVaultNames());
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!program || !wallet) return;
@@ -103,7 +109,15 @@ export function Dashboard() {
   }
 
   if (!vaults || vaults.length === 0) {
-    return <CreateVaultForm onCreated={refresh} />;
+    return (
+      <CreateVaultForm
+        onCreated={(vault, name) => {
+          setVaultNames(saveVaultName(vault, name));
+          setSelectedVaultAddress(vault.toBase58());
+          refresh();
+        }}
+      />
+    );
   }
 
   const selectedVault =
@@ -135,7 +149,7 @@ export function Dashboard() {
                     }`}
                   >
                     <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display">
-                      Agent
+                      {vaultNames[address] ?? fallbackVaultName(vault.address)}
                     </span>
                     <span className="block truncate text-sm font-display">
                       {vault.agent.toBase58()}
@@ -163,13 +177,22 @@ export function Dashboard() {
       )}
       {showCreateVault ? (
         <CreateVaultForm
-          onCreated={() => {
+          onCreated={(vault, name) => {
+            setVaultNames(saveVaultName(vault, name));
+            setSelectedVaultAddress(vault.toBase58());
             setShowCreateVault(false);
             refresh();
           }}
         />
       ) : (
-        <VaultDetail vault={selectedVault} onChange={refresh} />
+        <VaultDetail
+          vault={selectedVault}
+          vaultName={
+            vaultNames[selectedVault.address.toBase58()] ??
+            fallbackVaultName(selectedVault.address)
+          }
+          onChange={refresh}
+        />
       )}
     </div>
   );

@@ -176,7 +176,6 @@ export function ProposalsPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastTransaction, setLastTransaction] = useState<LastTransaction | null>(null);
-  const [filter, setFilter] = useState<"pending" | "all">("pending");
 
   const program = useMemo(
     () => (wallet ? getProgram(connection, wallet) : null),
@@ -227,10 +226,8 @@ export function ProposalsPanel({
 
   const visible = useMemo(() => {
     if (!proposals) return [];
-    if (filter === "pending")
-      return proposals.filter((proposal) => statusOf(proposal) === "pending");
-    return proposals;
-  }, [proposals, filter]);
+    return proposals.filter((proposal) => statusOf(proposal) === "pending");
+  }, [proposals]);
 
   useEffect(() => {
     if (visible.length === 0) {
@@ -434,26 +431,6 @@ export function ProposalsPanel({
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setFilter("pending")}
-              className={`border px-3 py-2 text-xs font-display uppercase tracking-wider ${
-                filter === "pending"
-                  ? "border-line text-text bg-[rgba(10,186,181,0.08)]"
-                  : "border-line-soft text-muted hover:text-text"
-              }`}
-            >
-              Pending
-            </button>
-            <button
-              onClick={() => setFilter("all")}
-              className={`border px-3 py-2 text-xs font-display uppercase tracking-wider ${
-                filter === "all"
-                  ? "border-line text-text bg-[rgba(10,186,181,0.08)]"
-                  : "border-line-soft text-muted hover:text-text"
-              }`}
-            >
-              All
-            </button>
-            <button
               onClick={refresh}
               className="border border-line-soft px-3 py-2 text-xs uppercase tracking-wider font-display text-muted hover:border-line hover:text-text"
             >
@@ -503,9 +480,7 @@ export function ProposalsPanel({
         </div>
       ) : visible.length === 0 ? (
         <div className="border border-dashed border-line-soft p-10 text-center text-sm text-muted">
-          {filter === "pending"
-            ? "No proposals waiting for approval."
-            : "No proposals found."}
+          No proposals waiting for approval.
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
