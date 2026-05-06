@@ -1,13 +1,11 @@
 "use client";
 
-import { EventParser } from "@coral-xyz/anchor";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { formatUsdc, shortAddress } from "@/lib/format";
-import { NETWORK, PROGRAM_ID, RPC_URL } from "@/lib/network";
-import { proposalPda } from "@/lib/pdas";
+import { NETWORK } from "@/lib/network";
 import {
   loadProposalTransactions,
   type ProposalTransactionRecord,
@@ -15,7 +13,6 @@ import {
 import { getProgram } from "@/lib/program";
 import type { VaultData } from "./VaultDetail";
 
-const TX_HISTORY_SIGNATURE_LIMIT = 20;
 const TX_HISTORY_CACHE_MS = 30_000;
 
 type ProposalHistoryItem = {
@@ -53,19 +50,22 @@ type ChainEventHistory = {
   incomplete: boolean;
 };
 
-type RpcSignatureInfo = {
-  signature: string;
-  blockTime: number | null;
+type ChainHistoryPayload = {
+  directSends: {
+    id: string;
+    signature: string;
+    slot: number;
+    blockTime: number | null;
+    signer: string;
+    recipient: string;
+    amount: string;
+    fee: string;
+    whitelisted: boolean;
+  }[];
+  proposalTransactions?: Record<string, HistoryProposalTransaction>;
+  incomplete?: boolean;
+  error?: string;
 };
-
-type RpcTransaction = {
-  slot: number;
-  blockTime: number | null;
-  meta: {
-    err: unknown;
-    logMessages: string[] | null;
-  } | null;
-} | null;
 
 type ProposalHistoryRow = {
   kind: "proposal";
@@ -127,54 +127,6 @@ function normalizeError(error: unknown): string {
   return String(error);
 }
 
-async function rpcRequest<T>(method: string, params: unknown[]): Promise<T> {
-  const response = await fetch(RPC_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: `tandem-${method}`,
-      method,
-      params,
-    }),
-  });
-
-  if (response.status === 429) {
-    throw new Error("Direct transaction history is temporarily rate-limited by devnet RPC.");
-  }
-  if (!response.ok) {
-    throw new Error(`Devnet RPC returned ${response.status}.`);
-  }
-
-  const payload = await response.json();
-  if (payload.error) {
-    if (payload.error.code === 429) {
-      throw new Error("Direct transaction history is temporarily rate-limited by devnet RPC.");
-    }
-    throw new Error(payload.error.message ?? "Devnet RPC request failed.");
-  }
-
-  return payload.result as T;
-}
-
-async function fetchVaultSignatures(vault: PublicKey): Promise<RpcSignatureInfo[]> {
-  return rpcRequest<RpcSignatureInfo[]>("getSignaturesForAddress", [
-    vault.toBase58(),
-    { limit: TX_HISTORY_SIGNATURE_LIMIT },
-  ]);
-}
-
-async function fetchTransaction(signature: string): Promise<RpcTransaction> {
-  return rpcRequest<RpcTransaction>("getTransaction", [
-    signature,
-    {
-      encoding: "json",
-      commitment: "confirmed",
-      maxSupportedTransactionVersion: 0,
-    },
-  ]);
-}
-
 function asPublicKey(value: unknown): PublicKey {
   if (value instanceof PublicKey) return value;
   if (
@@ -191,18 +143,6 @@ function asPublicKey(value: unknown): PublicKey {
 function asBn(value: unknown): BN {
   if (value instanceof BN) return value;
   return new BN(String(value));
-}
-
-function isVaultEvent(data: Record<string, unknown>, vault: PublicKey): boolean {
-  try {
-    return asPublicKey(data.vault).equals(vault);
-  } catch {
-    return false;
-  }
-}
-
-function proposalIdFromEvent(data: Record<string, unknown>): BN {
-  return asBn(data.proposal_id ?? data.proposalId);
 }
 
 function mergeTransactionRecords(
@@ -421,64 +361,30 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
     if (inFlight) return inFlight;
 
     const request = (async () => {
-      const parser = new EventParser(PROGRAM_ID, (program as any).coder);
-      const signatures = await fetchVaultSignatures(vault.address);
-      const directSends: DirectSendHistoryItem[] = [];
-      const proposalTransactions: Record<string, HistoryProposalTransaction> = {};
-      let incomplete = false;
-
-      for (const signatureInfo of signatures) {
-        let transaction: RpcTransaction;
-        try {
-          transaction = await fetchTransaction(signatureInfo.signature);
-        } catch {
-          incomplete = true;
-          continue;
-        }
-
-        const logs = transaction?.meta?.logMessages;
-        if (!transaction || transaction.meta?.err || !logs) continue;
-
-        const blockTime = transaction.blockTime ?? signatureInfo.blockTime ?? null;
-        let eventIndex = 0;
-
-        for (const event of parser.parseLogs(logs)) {
-          const data = event.data as Record<string, unknown>;
-          if (!isVaultEvent(data, vault.address)) continue;
-
-          if (event.name === "UsdcSent") {
-            directSends.push({
-              id: `${signatureInfo.signature}:${eventIndex}`,
-              signature: signatureInfo.signature,
-              slot: transaction.slot,
-              blockTime,
-              signer: asPublicKey(data.signer),
-              recipient: asPublicKey(data.recipient),
-              amount: asBn(data.amount),
-              fee: asBn(data.fee),
-              whitelisted: Boolean(data.whitelisted),
-            });
-          }
-
-          if (event.name === "ProposalApproved" || event.name === "ProposalCancelled") {
-            const proposalId = proposalIdFromEvent(data);
-            const proposalKey = proposalPda(vault.address, proposalId).toBase58();
-            proposalTransactions[proposalKey] = {
-              action: event.name === "ProposalApproved" ? "approved" : "cancelled",
-              signature: signatureInfo.signature,
-              recordedAt: blockTime
-                ? new Date(blockTime * 1000).toISOString()
-                : new Date().toISOString(),
-              blockTime,
-              slot: transaction.slot,
-            };
-          }
-
-          eventIndex += 1;
-        }
+      const response = await fetch(`/api/vault-history?vault=${cacheKey}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error("Direct transaction history could not be loaded.");
       }
+      const payload = (await response.json()) as ChainHistoryPayload;
+      if (payload.error) throw new Error(payload.error);
 
-      const history = { directSends, proposalTransactions, incomplete };
+      const history: ChainEventHistory = {
+        directSends: payload.directSends.map((transfer) => ({
+          id: transfer.id,
+          signature: transfer.signature,
+          slot: transfer.slot,
+          blockTime: transfer.blockTime,
+          signer: asPublicKey(transfer.signer),
+          recipient: asPublicKey(transfer.recipient),
+          amount: asBn(transfer.amount),
+          fee: asBn(transfer.fee),
+          whitelisted: Boolean(transfer.whitelisted),
+        })),
+        proposalTransactions: payload.proposalTransactions ?? {},
+        incomplete: Boolean(payload.incomplete),
+      };
       chainHistoryCache.set(cacheKey, { loadedAt: Date.now(), history });
       return history;
     })();
