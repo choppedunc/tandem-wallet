@@ -99,6 +99,33 @@ function normalizeWithdrawError(error: unknown): string {
   return String(error);
 }
 
+function rawUsdcToInput(raw: bigint): string {
+  const whole = raw / ONE_USDC_RAW;
+  const fraction = raw % ONE_USDC_RAW;
+  if (fraction === BigInt(0)) return whole.toString();
+  return `${whole}.${fraction.toString().padStart(6, "0").replace(/0+$/, "")}`;
+}
+
+function totalWithFee(rawAmount: bigint, feeBps: number): bigint {
+  return rawAmount + (rawAmount * BigInt(feeBps)) / BigInt(10_000);
+}
+
+function maxWithdrawRaw(balance: bigint, feeBps: number): bigint {
+  let low = BigInt(0);
+  let high = balance;
+
+  while (low < high) {
+    const mid = (low + high + BigInt(1)) / BigInt(2);
+    if (totalWithFee(mid, feeBps) <= balance) {
+      low = mid;
+    } else {
+      high = mid - BigInt(1);
+    }
+  }
+
+  return low;
+}
+
 function WithdrawPanel({
   vault,
   usdcBalance,
@@ -113,6 +140,7 @@ function WithdrawPanel({
   const walletAddress = wallet?.publicKey.toBase58() ?? "";
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState(walletAddress);
+  const [feeBps, setFeeBps] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -122,6 +150,33 @@ function WithdrawPanel({
       setRecipient(walletAddress);
     }
   }, [vault.address, walletAddress]);
+
+  useEffect(() => {
+    if (!wallet) {
+      setFeeBps(null);
+      return;
+    }
+
+    let cancelled = false;
+    const program = getProgram(connection, wallet);
+    const protocolConfig = protocolConfigPda();
+
+    (program.account as any).protocolConfig
+      .fetch(protocolConfig)
+      .then((config: { feeBps: number }) => {
+        if (!cancelled) setFeeBps(Number(config.feeBps));
+      })
+      .catch(() => {
+        if (!cancelled) setFeeBps(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connection, wallet]);
+
+  const maxAmountRaw =
+    usdcBalance !== null && feeBps !== null ? maxWithdrawRaw(usdcBalance, feeBps) : null;
 
   async function withdraw(e: React.FormEvent) {
     e.preventDefault();
@@ -151,8 +206,7 @@ function WithdrawPanel({
       const program = getProgram(connection, wallet);
       const protocolConfig = protocolConfigPda();
       const config = await (program.account as any).protocolConfig.fetch(protocolConfig);
-      const feeRaw =
-        (amountRawBigInt * BigInt(Number(config.feeBps))) / BigInt(10_000);
+      const feeRaw = (amountRawBigInt * BigInt(Number(config.feeBps))) / BigInt(10_000);
 
       if (usdcBalance !== null && amountRawBigInt + feeRaw > usdcBalance) {
         throw new Error(
@@ -228,7 +282,7 @@ function WithdrawPanel({
 
       <form
         onSubmit={withdraw}
-        className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_11rem_auto] lg:items-end"
+        className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_auto] lg:items-end"
       >
         <label className="block min-w-0">
           <span className="mb-2 block text-[0.65rem] uppercase tracking-[0.16em] text-muted font-display">
@@ -252,8 +306,18 @@ function WithdrawPanel({
               step="0.000001"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full border border-line-soft bg-[rgba(2,10,12,0.7)] px-3 py-2.5 pr-14 font-display text-sm text-text focus:outline-none focus:border-line"
+              className="w-full border border-line-soft bg-[rgba(2,10,12,0.7)] px-3 py-2.5 pr-24 font-display text-sm text-text focus:outline-none focus:border-line"
             />
+            <button
+              type="button"
+              onClick={() => {
+                if (maxAmountRaw !== null) setAmount(rawUsdcToInput(maxAmountRaw));
+              }}
+              disabled={maxAmountRaw === null || maxAmountRaw === BigInt(0)}
+              className="absolute right-14 top-1/2 -translate-y-1/2 border border-line-soft px-1.5 py-0.5 text-[0.58rem] font-display uppercase tracking-[0.12em] text-accent-2 hover:border-line hover:text-text disabled:opacity-40"
+            >
+              MAX
+            </button>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[0.65rem] uppercase tracking-[0.12em] text-muted font-display">
               USDC
             </span>
