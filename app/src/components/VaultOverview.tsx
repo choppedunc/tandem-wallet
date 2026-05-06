@@ -1,6 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey, Transaction } from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import { getProgram } from "@/lib/program";
+import { protocolConfigPda } from "@/lib/pdas";
+import { formatUsdc, usdcToRaw } from "@/lib/format";
 import type { VaultData } from "./VaultDetail";
 
 const ONE_USDC_RAW = BigInt(1_000_000);
@@ -76,12 +87,209 @@ function TextLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function VaultOverview({
+function normalizeWithdrawError(error: unknown): string {
+  if (typeof error === "object" && error !== null) {
+    const maybeError = error as { error?: { errorMessage?: string }; message?: string };
+    if (maybeError.error?.errorMessage) return maybeError.error.errorMessage;
+    if (maybeError.message?.includes("User rejected")) {
+      return "The wallet rejected the signature request.";
+    }
+    if (maybeError.message) return maybeError.message;
+  }
+  return String(error);
+}
+
+function WithdrawPanel({
   vault,
   usdcBalance,
+  onChange,
 }: {
   vault: VaultData;
   usdcBalance: bigint | null;
+  onChange: () => void;
+}) {
+  const { connection } = useConnection();
+  const wallet = useAnchorWallet();
+  const walletAddress = wallet?.publicKey.toBase58() ?? "";
+  const [amount, setAmount] = useState("");
+  const [recipient, setRecipient] = useState(walletAddress);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (walletAddress) {
+      setRecipient(walletAddress);
+    }
+  }, [vault.address, walletAddress]);
+
+  async function withdraw(e: React.FormEvent) {
+    e.preventDefault();
+    if (!wallet) return;
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      if (!wallet.publicKey.equals(vault.human)) {
+        throw new Error("Only the human owner can withdraw from this vault.");
+      }
+
+      const amountNum = Number(amount);
+      if (!Number.isFinite(amountNum) || amountNum <= 0) {
+        throw new Error("Enter a withdrawal amount greater than zero.");
+      }
+
+      const amountRaw = usdcToRaw(amountNum);
+      const amountRawBigInt = BigInt(amountRaw.toString());
+      const recipientWallet = new PublicKey(recipient.trim());
+      const recipientAta = getAssociatedTokenAddressSync(
+        vault.usdcMint,
+        recipientWallet,
+        true
+      );
+      const program = getProgram(connection, wallet);
+      const protocolConfig = protocolConfigPda();
+      const config = await (program.account as any).protocolConfig.fetch(protocolConfig);
+      const feeRaw =
+        (amountRawBigInt * BigInt(Number(config.feeBps))) / BigInt(10_000);
+
+      if (usdcBalance !== null && amountRawBigInt + feeRaw > usdcBalance) {
+        throw new Error(
+          `Amount plus protocol fee exceeds vault balance. Maximum total available: ${formatUsdc(
+            usdcBalance
+          )}.`
+        );
+      }
+
+      const recipientAtaInfo = await connection.getAccountInfo(recipientAta);
+      let setupSignature: string | null = null;
+      if (!recipientAtaInfo) {
+        const tx = new Transaction().add(
+          createAssociatedTokenAccountInstruction(
+            wallet.publicKey,
+            recipientAta,
+            recipientWallet,
+            vault.usdcMint,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
+          )
+        );
+        const latestBlockhash = await connection.getLatestBlockhash();
+        tx.feePayer = wallet.publicKey;
+        tx.recentBlockhash = latestBlockhash.blockhash;
+        const signedTx = await wallet.signTransaction(tx);
+        setupSignature = await connection.sendRawTransaction(signedTx.serialize());
+        await connection.confirmTransaction(
+          { signature: setupSignature, ...latestBlockhash },
+          "confirmed"
+        );
+      }
+
+      const signature = await (program.methods as any)
+        .sendUsdc(amountRaw)
+        .accounts({
+          signer: wallet.publicKey,
+          vault: vault.address,
+          vaultUsdcAta: vault.vaultUsdcAta,
+          recipientAta,
+          whitelistEntry: null,
+          protocolConfig,
+          stakerRewardAta: config.stakerRewardAta,
+          treasuryAta: config.treasuryAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      setAmount("");
+      setSuccess(
+        `${formatUsdc(amountRawBigInt)} withdrawn. Fee: ${formatUsdc(feeRaw)}.${
+          setupSignature ? " Recipient USDC account was created first." : ""
+        } Tx: ${signature}`
+      );
+      onChange();
+    } catch (withdrawError) {
+      setError(normalizeWithdrawError(withdrawError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="brackets p-5">
+      <div className="mb-4">
+        <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-accent-2">
+          Withdraw USDC
+        </p>
+        <h2 className="font-display text-xl font-bold text-text">
+          Move funds as human owner
+        </h2>
+      </div>
+
+      <form
+        onSubmit={withdraw}
+        className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_11rem_auto] lg:items-end"
+      >
+        <label className="block min-w-0">
+          <span className="mb-2 block text-[0.65rem] uppercase tracking-[0.16em] text-muted font-display">
+            Recipient wallet
+          </span>
+          <input
+            type="text"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            className="w-full border border-line-soft bg-[rgba(2,10,12,0.7)] px-3 py-2.5 font-display text-sm text-text focus:outline-none focus:border-line"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-[0.65rem] uppercase tracking-[0.16em] text-muted font-display">
+            Amount
+          </span>
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              step="0.000001"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full border border-line-soft bg-[rgba(2,10,12,0.7)] px-3 py-2.5 pr-14 font-display text-sm text-text focus:outline-none focus:border-line"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[0.65rem] uppercase tracking-[0.12em] text-muted font-display">
+              USDC
+            </span>
+          </div>
+        </label>
+        <button
+          type="submit"
+          disabled={busy || !wallet || !amount || !recipient}
+          className="brackets-accent px-4 py-2.5 text-sm font-bold uppercase tracking-[0.14em] text-[#032b2a] disabled:opacity-50"
+        >
+          {busy ? "Withdrawing…" : "Withdraw"}
+        </button>
+      </form>
+
+      {error && (
+        <div className="mt-4 border border-line p-3 text-sm text-accent-2 bg-[rgba(10,186,181,0.06)]">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="mt-4 break-all border border-line-soft p-3 text-sm text-muted bg-[rgba(10,186,181,0.04)]">
+          {success}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function VaultOverview({
+  vault,
+  usdcBalance,
+  onChange,
+}: {
+  vault: VaultData;
+  usdcBalance: bigint | null;
+  onChange: () => void;
 }) {
   const needsDeposit = usdcBalance !== null && usdcBalance < ONE_USDC_RAW;
   const depositAddress = vault.vaultUsdcAta.toBase58();
@@ -140,6 +348,8 @@ export function VaultOverview({
           </div>
         </div>
       </div>
+
+      <WithdrawPanel vault={vault} usdcBalance={usdcBalance} onChange={onChange} />
 
       <div className="brackets p-6">
         <p className="text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display mb-4">
