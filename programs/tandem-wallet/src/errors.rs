@@ -12,16 +12,12 @@ pub enum VaultError {
     VaultPaused,
     #[msg("Vault is not paused")]
     VaultNotPaused,
-    #[msg("Tier 1 max must be less than or equal to tier 2 max")]
-    InvalidThresholds,
     #[msg("Proposal has already been executed")]
     ProposalAlreadyExecuted,
     #[msg("Proposal has already been cancelled")]
     ProposalAlreadyCancelled,
-    #[msg("Amount exceeds tier 2 max, must use propose")]
-    TierTooHigh,
-    #[msg("Amount exceeds tier 1 max and is_emergency is false")]
-    NotEmergency,
+    #[msg("Amount exceeds spending limit, must use propose")]
+    OverSpendingLimit,
     #[msg("Address is already whitelisted")]
     AlreadyWhitelisted,
     #[msg("Amount must be greater than zero")]

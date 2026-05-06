@@ -2,9 +2,10 @@
 name: tandem
 description: >-
   Manage a Tandem Wallet smart account on Solana. Check vault balances and status,
-  send USDC with automatic tier routing, list and inspect pending proposals,
-  and estimate spending tiers. Use when the user asks about their vault, wants to
-  send USDC, check balances, or manage proposals.
+  send USDC (auto-proposing anything over the spending limit), list and inspect
+  pending proposals, and preview whether an amount needs human approval. Use when
+  the user asks about their vault, wants to send USDC, check balances, or manage
+  proposals.
 compatibility: Requires Node.js 18+ and network access to a Solana RPC endpoint.
 allowed-tools: Bash Read
 ---
@@ -31,14 +32,16 @@ All scripts must be run from the `tandem/` directory. No other configuration nee
 
 If on Node.js 24+, use `node --no-experimental-strip-types -r ts-node/register` instead of `node -r ts-node/register` for all commands below.
 
-## Tier System
+## Spending Authority
 
-| Tier | Condition | Action |
-|------|-----------|--------|
-| Whitelist | Recipient whitelisted | Execute immediately, no limit |
-| Tier 1 | amount ≤ 50 USDC | Execute immediately |
-| Tier 2 | amount ≤ 100 USDC + emergency flag | Execute immediately |
-| Tier 3 | amount > 100 USDC | Creates proposal, needs human approval |
+| Condition | Action |
+|-----------|--------|
+| Recipient is whitelisted | Execute immediately, no amount limit |
+| Amount ≤ vault spending limit | Execute immediately |
+| Amount > vault spending limit | Creates a proposal — needs human approval |
+
+The human owner sets the spending limit. Setting it to `0` means every send
+requires human approval.
 
 ## Available Operations
 
@@ -46,7 +49,7 @@ If on Node.js 24+, use `node --no-experimental-strip-types -r ts-node/register` 
 ```bash
 node -r ts-node/register vault-status.ts
 ```
-Returns: human, agent, tiers, paused state, USDC balance, SOL balance, proposal count.
+Returns: human, agent, spending limit, paused state, USDC balance, SOL balance, proposal count.
 
 ### Check Balance
 ```bash
@@ -56,13 +59,14 @@ Returns: SOL and USDC balances only.
 
 ### Send USDC
 ```bash
-node -r ts-node/register send-usdc.ts <recipient> <amount> [--emergency]
+node -r ts-node/register send-usdc.ts <recipient> <amount>
 ```
 - `recipient`: Wallet address (base58)
 - `amount`: USDC amount (e.g., "50" for 50 USDC)
-- `--emergency`: Required for tier 2 sends (amount between 50 and 100 USDC)
 
-Auto tier-routes: executes if within tier limits, creates proposal if over 100 USDC.
+If the amount is within the vault's spending limit (or the recipient is
+whitelisted), the send executes immediately. Otherwise the script creates a
+proposal that the human must approve.
 
 ### List Proposals
 ```bash
@@ -75,11 +79,12 @@ Default filter is `pending`.
 node -r ts-node/register get-proposal.ts <proposal_id>
 ```
 
-### Estimate Tier
+### Preview a Send
 ```bash
-node -r ts-node/register estimate-tier.ts <amount>
+node -r ts-node/register preview-send.ts <amount>
 ```
-Preview which tier an amount would fall into without executing.
+Preview whether an amount would execute immediately or create a proposal,
+without sending anything.
 
 ## Error Handling
 
@@ -88,12 +93,11 @@ All scripts output JSON. On success, the result is printed to stdout. On failure
 | Error | Meaning |
 |-------|---------|
 | VaultPaused | Vault is paused by human owner — cannot send |
-| NotEmergency | Amount is in tier 2 range — add `--emergency` flag |
-| TierTooHigh | Amount exceeds tier 2 max — will auto-propose instead |
+| OverSpendingLimit | Amount exceeds spending limit — `send-usdc` will auto-propose instead |
 | ZeroAmount | Cannot send 0 USDC |
 
 ## Safety Notes
 
 - Always verify recipient addresses before sending
-- Use `estimate-tier` before sending to preview the action
-- The agent can only spend up to tier limits autonomously — larger amounts require human approval
+- Use `preview-send` before sending to preview the action
+- The agent can only spend up to the vault's spending limit autonomously — larger amounts require human approval

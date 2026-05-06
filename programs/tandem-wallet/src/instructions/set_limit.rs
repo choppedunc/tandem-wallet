@@ -4,7 +4,7 @@ use crate::errors::*;
 use crate::events::*;
 
 #[derive(Accounts)]
-pub struct SetTiers<'info> {
+pub struct SetLimit<'info> {
     pub human: Signer<'info>,
 
     #[account(
@@ -16,17 +16,13 @@ pub struct SetTiers<'info> {
     pub vault: Account<'info, Vault>,
 }
 
-pub fn handler(ctx: Context<SetTiers>, tier1_max: u64, tier2_max: u64) -> Result<()> {
-    require!(tier1_max <= tier2_max, VaultError::InvalidThresholds);
-
+pub fn handler(ctx: Context<SetLimit>, spending_limit: u64) -> Result<()> {
     let vault = &mut ctx.accounts.vault;
-    vault.tier1_max = tier1_max;
-    vault.tier2_max = tier2_max;
+    vault.spending_limit = spending_limit;
 
-    emit!(TiersUpdated {
+    emit!(SpendingLimitUpdated {
         vault: vault.key(),
-        tier1_max,
-        tier2_max,
+        spending_limit,
     });
 
     Ok(())

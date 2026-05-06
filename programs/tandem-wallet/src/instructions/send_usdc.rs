@@ -52,7 +52,7 @@ pub struct SendUsdc<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn handler(ctx: Context<SendUsdc>, amount: u64, is_emergency: bool) -> Result<()> {
+pub fn handler(ctx: Context<SendUsdc>, amount: u64) -> Result<()> {
     require!(amount > 0, VaultError::ZeroAmount);
 
     let vault = &ctx.accounts.vault;
@@ -64,13 +64,9 @@ pub fn handler(ctx: Context<SendUsdc>, amount: u64, is_emergency: bool) -> Resul
     // Must be human or agent
     require!(is_human || is_agent, VaultError::OnlyAgentOrHuman);
 
-    let mut tier: u8 = 0;
     let mut whitelisted = false;
 
-    if is_human {
-        // Human can always send, tier 0 (human override)
-        tier = 0;
-    } else {
+    if !is_human {
         // Agent flow
         require!(!vault.paused, VaultError::VaultPaused);
 
@@ -80,19 +76,11 @@ pub fn handler(ctx: Context<SendUsdc>, amount: u64, is_emergency: bool) -> Resul
                 && wl_entry.address == ctx.accounts.recipient_ata.owner
             {
                 whitelisted = true;
-                tier = 0;
             }
         }
 
         if !whitelisted {
-            if amount <= vault.tier1_max {
-                tier = 1;
-            } else if amount <= vault.tier2_max {
-                require!(is_emergency, VaultError::NotEmergency);
-                tier = 2;
-            } else {
-                return err!(VaultError::TierTooHigh);
-            }
+            require!(amount <= vault.spending_limit, VaultError::OverSpendingLimit);
         }
     }
 
@@ -138,7 +126,6 @@ pub fn handler(ctx: Context<SendUsdc>, amount: u64, is_emergency: bool) -> Resul
         recipient: ctx.accounts.recipient_ata.owner,
         amount,
         fee,
-        tier,
         whitelisted,
     });
 

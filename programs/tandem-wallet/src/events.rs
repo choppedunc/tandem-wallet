@@ -15,7 +15,6 @@ pub struct UsdcSent {
     pub recipient: Pubkey,
     pub amount: u64,
     pub fee: u64,
-    pub tier: u8,
     pub whitelisted: bool,
 }
 
@@ -44,10 +43,9 @@ pub struct ProposalCancelled {
 }
 
 #[event]
-pub struct TiersUpdated {
+pub struct SpendingLimitUpdated {
     pub vault: Pubkey,
-    pub tier1_max: u64,
-    pub tier2_max: u64,
+    pub spending_limit: u64,
 }
 
 #[event]

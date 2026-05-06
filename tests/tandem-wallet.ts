@@ -51,8 +51,7 @@ describe("tandem-wallet", () => {
   let buybackAta: PublicKey;
   let stakeTandemAta: PublicKey;
 
-  const TIER1_MAX = new BN(50_000_000); // 50 USDC
-  const TIER2_MAX = new BN(100_000_000); // 100 USDC
+  const SPENDING_LIMIT = new BN(50_000_000); // 50 USDC
   const INITIAL_VAULT_BALANCE = 1_000_000_000; // 1000 USDC
   const FEE_BPS = 25; // 0.25%
 
@@ -122,7 +121,7 @@ describe("tandem-wallet", () => {
 
   it("Initializes the vault", async () => {
     await program.methods
-      .initialize(TIER1_MAX, TIER2_MAX)
+      .initialize(SPENDING_LIMIT)
       .accounts({
         human,
         agent: agent.publicKey,
@@ -139,8 +138,7 @@ describe("tandem-wallet", () => {
     const vaultAccount = await program.account.vault.fetch(vault);
     expect(vaultAccount.human.toString()).to.equal(human.toString());
     expect(vaultAccount.agent.toString()).to.equal(agent.publicKey.toString());
-    expect(vaultAccount.tier1Max.toString()).to.equal(TIER1_MAX.toString());
-    expect(vaultAccount.tier2Max.toString()).to.equal(TIER2_MAX.toString());
+    expect(vaultAccount.spendingLimit.toString()).to.equal(SPENDING_LIMIT.toString());
     expect(vaultAccount.paused).to.be.false;
     expect(vaultAccount.proposalCount.toNumber()).to.equal(0);
   });
@@ -182,14 +180,14 @@ describe("tandem-wallet", () => {
 
   // --- Tier routing tests (now with fee accounts) ---
 
-  it("Agent sends Tier 1 amount (30 USDC) with 0.25% fee", async () => {
+  it("Agent sends Tier 1 amount (30 USDC) with 0.25% fee redirected to buyback when no one is staked", async () => {
     const amount = new BN(30_000_000);
     const beforeRecipient = await getAccount(provider.connection, recipientAta);
     const beforeStakerReward = await getAccount(provider.connection, stakerRewardAta);
     const beforeBuyback = await getAccount(provider.connection, buybackAta);
 
     await program.methods
-      .sendUsdc(amount, false)
+      .sendUsdc(amount)
       .accounts({
         signer: agent.publicKey,
         vault,
@@ -210,39 +208,18 @@ describe("tandem-wallet", () => {
     expect(Number(afterRecipient.amount) - Number(beforeRecipient.amount)).to.equal(30_000_000);
 
     // Fee = 30_000_000 * 25 / 10000 = 75_000
-    // Staker half = 37_500, Buyback half = 37_500
+    // No one is staked yet, so the staker portion redirects to buyback.
     const stakerFee = Number(afterStakerReward.amount) - Number(beforeStakerReward.amount);
     const buybackFee = Number(afterBuyback.amount) - Number(beforeBuyback.amount);
-    expect(stakerFee).to.equal(37_500);
-    expect(buybackFee).to.equal(37_500);
+    expect(stakerFee).to.equal(0);
+    expect(buybackFee).to.equal(75_000);
   });
 
-  it("Tier 2 without emergency flag fails (NotEmergency)", async () => {
-    try {
-      await program.methods
-        .sendUsdc(new BN(75_000_000), false)
-        .accounts({
-          signer: agent.publicKey,
-          vault,
-          vaultUsdcAta,
-          recipientAta,
-          whitelistEntry: null,
-          ...feeAccounts(),
-          tokenProgram: TOKEN_PROGRAM_ID,
-        })
-        .signers([agent])
-        .rpc();
-      expect.fail("Should have thrown");
-    } catch (e: any) {
-      expect(e.error.errorCode.code).to.equal("NotEmergency");
-    }
-  });
-
-  it("Tier 2 with emergency flag succeeds (75 USDC)", async () => {
+  it("Send at exactly the limit succeeds (50 USDC)", async () => {
     const before = await getAccount(provider.connection, recipientAta);
 
     await program.methods
-      .sendUsdc(new BN(75_000_000), true)
+      .sendUsdc(new BN(50_000_000))
       .accounts({
         signer: agent.publicKey,
         vault,
@@ -256,13 +233,13 @@ describe("tandem-wallet", () => {
       .rpc();
 
     const after = await getAccount(provider.connection, recipientAta);
-    expect(Number(after.amount) - Number(before.amount)).to.equal(75_000_000);
+    expect(Number(after.amount) - Number(before.amount)).to.equal(50_000_000);
   });
 
-  it("Over tier2_max fails (TierTooHigh)", async () => {
+  it("Over spending limit fails (OverSpendingLimit)", async () => {
     try {
       await program.methods
-        .sendUsdc(new BN(150_000_000), true)
+        .sendUsdc(new BN(75_000_000))
         .accounts({
           signer: agent.publicKey,
           vault,
@@ -276,7 +253,7 @@ describe("tandem-wallet", () => {
         .rpc();
       expect.fail("Should have thrown");
     } catch (e: any) {
-      expect(e.error.errorCode.code).to.equal("TierTooHigh");
+      expect(e.error.errorCode.code).to.equal("OverSpendingLimit");
     }
   });
 
@@ -335,13 +312,14 @@ describe("tandem-wallet", () => {
     const afterRecipient = await getAccount(provider.connection, recipientAta);
     expect(Number(afterRecipient.amount) - Number(beforeRecipient.amount)).to.equal(150_000_000);
 
-    // Fee = 150_000_000 * 25 / 10000 = 375_000
+    // Fee = 150_000_000 * 25 / 10000 = 375_000.
+    // No one is staked yet, so the staker portion redirects to buyback.
     const afterStakerReward = await getAccount(provider.connection, stakerRewardAta);
     const afterBuyback = await getAccount(provider.connection, buybackAta);
     const stakerFee = Number(afterStakerReward.amount) - Number(beforeStakerReward.amount);
     const buybackFee = Number(afterBuyback.amount) - Number(beforeBuyback.amount);
-    expect(stakerFee).to.equal(187_500);
-    expect(buybackFee).to.equal(187_500);
+    expect(stakerFee).to.equal(0);
+    expect(buybackFee).to.equal(375_000);
 
     const proposal = await program.account.proposal.fetch(proposal1Pda);
     expect(proposal.executed).to.be.true;
@@ -417,11 +395,11 @@ describe("tandem-wallet", () => {
     expect(wl.address.toString()).to.equal(recipient.publicKey.toString());
   });
 
-  it("Agent sends over tier2_max to whitelisted recipient (200 USDC)", async () => {
+  it("Agent sends over the limit to whitelisted recipient (200 USDC)", async () => {
     const before = await getAccount(provider.connection, recipientAta);
 
     await program.methods
-      .sendUsdc(new BN(200_000_000), false)
+      .sendUsdc(new BN(200_000_000))
       .accounts({
         signer: agent.publicKey,
         vault,
@@ -452,10 +430,10 @@ describe("tandem-wallet", () => {
     }
   });
 
-  it("Agent over-tier1 send fails after whitelist removal", async () => {
+  it("Agent over-limit send fails after whitelist removal", async () => {
     try {
       await program.methods
-        .sendUsdc(new BN(75_000_000), false)
+        .sendUsdc(new BN(75_000_000))
         .accounts({
           signer: agent.publicKey,
           vault,
@@ -469,24 +447,51 @@ describe("tandem-wallet", () => {
         .rpc();
       expect.fail("Should have thrown");
     } catch (e: any) {
-      expect(e.error.errorCode.code).to.equal("NotEmergency");
+      expect(e.error.errorCode.code).to.equal("OverSpendingLimit");
     }
   });
 
   // --- Admin tests ---
 
-  it("Human updates tiers", async () => {
-    const newT1 = new BN(75_000_000);
-    const newT2 = new BN(150_000_000);
+  it("Human updates spending limit", async () => {
+    const newLimit = new BN(150_000_000);
 
     await program.methods
-      .setTiers(newT1, newT2)
+      .setLimit(newLimit)
       .accounts({ human, vault })
       .rpc();
 
     const v = await program.account.vault.fetch(vault);
-    expect(v.tier1Max.toString()).to.equal(newT1.toString());
-    expect(v.tier2Max.toString()).to.equal(newT2.toString());
+    expect(v.spendingLimit.toString()).to.equal(newLimit.toString());
+  });
+
+  it("Human can set limit to 0 (every send needs approval)", async () => {
+    await program.methods.setLimit(new BN(0)).accounts({ human, vault }).rpc();
+    const v = await program.account.vault.fetch(vault);
+    expect(v.spendingLimit.toNumber()).to.equal(0);
+
+    // Even a 1-lamport agent send should now fail
+    try {
+      await program.methods
+        .sendUsdc(new BN(1))
+        .accounts({
+          signer: agent.publicKey,
+          vault,
+          vaultUsdcAta,
+          recipientAta,
+          whitelistEntry: null,
+          ...feeAccounts(),
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([agent])
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("OverSpendingLimit");
+    }
+
+    // Reset to 150 USDC for downstream tests
+    await program.methods.setLimit(new BN(150_000_000)).accounts({ human, vault }).rpc();
   });
 
   it("Human pauses vault", async () => {
@@ -498,7 +503,7 @@ describe("tandem-wallet", () => {
   it("Agent send fails when paused", async () => {
     try {
       await program.methods
-        .sendUsdc(new BN(10_000_000), false)
+        .sendUsdc(new BN(10_000_000))
         .accounts({
           signer: agent.publicKey,
           vault,
@@ -520,7 +525,7 @@ describe("tandem-wallet", () => {
     const before = await getAccount(provider.connection, recipientAta);
 
     await program.methods
-      .sendUsdc(new BN(10_000_000), false)
+      .sendUsdc(new BN(10_000_000))
       .accounts({
         signer: human,
         vault,
@@ -546,7 +551,7 @@ describe("tandem-wallet", () => {
     const before = await getAccount(provider.connection, recipientAta);
 
     await program.methods
-      .sendUsdc(new BN(10_000_000), false)
+      .sendUsdc(new BN(10_000_000))
       .accounts({
         signer: agent.publicKey,
         vault,
@@ -572,7 +577,7 @@ describe("tandem-wallet", () => {
     const beforeBuyback = await getAccount(provider.connection, buybackAta);
 
     await program.methods
-      .sendUsdc(amount, false)
+      .sendUsdc(amount)
       .accounts({
         signer: agent.publicKey,
         vault,
@@ -592,13 +597,13 @@ describe("tandem-wallet", () => {
     expect(Number(afterBuyback.amount) - Number(beforeBuyback.amount)).to.equal(0);
   });
 
-  it("100 USDC send: 0.25 USDC fee (125K staker, 125K buyback)", async () => {
+  it("100 USDC send: 0.25 USDC fee redirects fully to buyback when no one is staked", async () => {
     const amount = new BN(100_000_000); // 100 USDC
     const beforeStakerReward = await getAccount(provider.connection, stakerRewardAta);
     const beforeBuyback = await getAccount(provider.connection, buybackAta);
 
     await program.methods
-      .sendUsdc(amount, true) // tier 2 with emergency
+      .sendUsdc(amount)
       .accounts({
         signer: agent.publicKey,
         vault,
@@ -615,8 +620,8 @@ describe("tandem-wallet", () => {
     const afterBuyback = await getAccount(provider.connection, buybackAta);
 
     // Fee = 100_000_000 * 25 / 10000 = 250_000
-    expect(Number(afterStakerReward.amount) - Number(beforeStakerReward.amount)).to.equal(125_000);
-    expect(Number(afterBuyback.amount) - Number(beforeBuyback.amount)).to.equal(125_000);
+    expect(Number(afterStakerReward.amount) - Number(beforeStakerReward.amount)).to.equal(0);
+    expect(Number(afterBuyback.amount) - Number(beforeBuyback.amount)).to.equal(250_000);
   });
 
   // --- Staking tests ---
@@ -739,7 +744,7 @@ describe("tandem-wallet", () => {
     // Send 50 USDC to generate fees while staker is staked
     const amount = new BN(50_000_000);
     await program.methods
-      .sendUsdc(amount, false)
+      .sendUsdc(amount)
       .accounts({
         signer: agent.publicKey,
         vault,

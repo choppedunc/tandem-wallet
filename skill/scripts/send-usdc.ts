@@ -7,13 +7,12 @@ import BN from "bn.js";
 async function main() {
   const args = process.argv.slice(2);
   if (args.length < 2) {
-    console.error(JSON.stringify({ error: "Usage: send-usdc.ts <recipient> <amount> [--emergency]" }));
+    console.error(JSON.stringify({ error: "Usage: send-usdc.ts <recipient> <amount>" }));
     process.exit(1);
   }
 
   const recipientAddress = new PublicKey(args[0]);
   const amount = parseFloat(args[1]);
-  const isEmergency = args.includes("--emergency");
   const rawAmount = usdcToRaw(amount);
   const program = getProgram();
   const connection = getConnection();
@@ -46,32 +45,16 @@ async function main() {
     // Not whitelisted
   }
 
-  // Estimate tier
-  const tier1Max = Number(vault.tier1Max);
-  const tier2Max = Number(vault.tier2Max);
+  const spendingLimit = Number(vault.spendingLimit);
   const rawAmountNum = Number(rawAmount);
 
-  if (whitelistEntry) {
-    // Whitelisted — send directly
-  } else if (rawAmountNum <= tier1Max) {
-    // Tier 1
-  } else if (rawAmountNum <= tier2Max) {
-    if (!isEmergency) {
-      console.log(JSON.stringify({
-        action: "rejected",
-        reason: "Amount exceeds tier 1 max. Use --emergency flag for tier 2.",
-        amount: formatUsdc(rawAmount),
-        tier1Max: formatUsdc(tier1Max),
-        tier2Max: formatUsdc(tier2Max),
-      }, null, 2));
-      process.exit(1);
-    }
-  } else {
-    // Tier 3: create proposal instead
+  // If over the spending limit and not whitelisted, create a proposal
+  if (!whitelistEntry && rawAmountNum > spendingLimit) {
     console.log(JSON.stringify({
       action: "proposing",
-      reason: "Amount exceeds tier 2 max. Creating proposal for human approval.",
+      reason: "Amount exceeds spending limit. Creating proposal for human approval.",
       amount: formatUsdc(rawAmount),
+      spendingLimit: formatUsdc(spendingLimit),
     }, null, 2));
 
     const proposalId = vault.proposalCount;
@@ -105,7 +88,7 @@ async function main() {
 
   // Execute send
   const tx = await (program.methods as any)
-    .sendUsdc(new BN(rawAmount.toString()), isEmergency)
+    .sendUsdc(new BN(rawAmount.toString()))
     .accounts({
       signer: agentKeypair.publicKey,
       vault: vaultAddress,
@@ -125,7 +108,6 @@ async function main() {
     recipient: recipientAddress.toBase58(),
     amount: formatUsdc(rawAmount),
     whitelisted: !!whitelistEntry,
-    isEmergency,
     tx,
   }, null, 2));
 }

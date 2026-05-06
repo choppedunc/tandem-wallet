@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #020503;
+  --color-bg-soft: #071109;
+  --color-surface: rgba(5, 24, 28, 0.72);
+  --color-surface-strong: rgba(10, 46, 52, 0.65);
+  --color-line: rgba(10, 186, 181, 0.34);
+  --color-line-soft: rgba(10, 186, 181, 0.16);
+  --color-text: #b9f7f5;
+  --color-muted: #74d9d5;
+  --color-accent: #0abab5;
+  --color-accent-2: #49d4d0;
+
+  --font-sans: var(--font-manrope, "Manrope"), system-ui, sans-serif;
+  --font-display: var(--font-chakra-petch, "Chakra Petch"), var(--font-manrope, "Manrope"), system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  position: relative;
+  background:
+    radial-gradient(circle at 20% -5%, rgba(6, 44, 46, 0.14), transparent 34%),
+    radial-gradient(circle at 84% 14%, rgba(6, 6, 6, 0.56), transparent 48%),
+    linear-gradient(180deg, #030404 0%, #010202 55%, #000000 100%);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* Subtle CRT static noise overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -30vh -30vw;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.08;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.8'/%3E%3C/svg%3E");
+  background-size: 210px 210px;
+  mix-blend-mode: screen;
+  filter: contrast(145%) brightness(115%);
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+/* Cyberpunk corner-bracket frame, applied as decorative accent */
+.brackets {
+  background:
+    linear-gradient(var(--color-line), var(--color-line)) 0 0 / 14px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 0 / 1px 14px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 0 / 14px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 0 / 1px 14px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 100% / 14px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 100% / 1px 14px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 14px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 1px 14px no-repeat,
+    rgba(2, 10, 12, 0.78);
+}
+
+.brackets-accent {
+  background:
+    linear-gradient(var(--color-line), var(--color-line)) 0 0 / 14px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 0 / 1px 14px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 0 / 14px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 0 / 1px 14px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 100% / 14px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 100% / 1px 14px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 14px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 1px 14px no-repeat,
+    linear-gradient(135deg, var(--color-accent), #6de7e3);
+}
+
+/* Override wallet-adapter button to match design */
+.wallet-adapter-button {
+  font-family: var(--font-sans) !important;
+  font-weight: 800 !important;
+  border: 1px solid var(--color-line-soft) !important;
+  border-radius: 0 !important;
+  padding: 0.6rem 1.1rem !important;
+  height: auto !important;
+  font-size: 0.86rem !important;
+  letter-spacing: 0.02em !important;
+  color: #032b2a !important;
+  background:
+    linear-gradient(var(--color-line), var(--color-line)) 0 0 / 12px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 0 / 1px 12px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 0 / 12px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 0 / 1px 12px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 100% / 12px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 100% / 1px 12px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 12px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 1px 12px no-repeat,
+    linear-gradient(135deg, var(--color-accent), #6de7e3) !important;
+  box-shadow: 0 8px 22px rgba(10, 186, 181, 0.22) !important;
+}
+
+.wallet-adapter-button:not([disabled]):hover {
+  background:
+    linear-gradient(var(--color-line), var(--color-line)) 0 0 / 12px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 0 / 1px 12px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 0 / 12px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 0 / 1px 12px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 100% / 12px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 0 100% / 1px 12px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 12px 1px no-repeat,
+    linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 1px 12px no-repeat,
+    linear-gradient(135deg, #15c8c2, #84efea) !important;
+  transform: translateY(-1px);
+}
+
+.wallet-adapter-modal-wrapper {
+  background: rgba(2, 10, 12, 0.95) !important;
+  border: 1px solid var(--color-line-soft) !important;
+  border-radius: 0 !important;
+}
+
+.wallet-adapter-modal-title,
+.wallet-adapter-modal-button-close {
+  color: var(--color-text) !important;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button {
+  background: rgba(3, 14, 17, 0.9) !important;
+  color: var(--color-text) !important;
+  box-shadow: none !important;
+}

@@ -4,6 +4,7 @@ skill/scripts/node_modules/
 skill/scripts/dist/
 .anchor/
 test-ledger/
+.DS_Store
 .env
 agent-keypair.json
 *.so

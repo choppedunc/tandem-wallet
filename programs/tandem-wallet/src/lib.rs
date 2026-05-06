@@ -14,12 +14,12 @@ declare_id!("6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ");
 pub mod tandem_wallet {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, tier1_max: u64, tier2_max: u64) -> Result<()> {
-        instructions::initialize::handler(ctx, tier1_max, tier2_max)
+    pub fn initialize(ctx: Context<Initialize>, spending_limit: u64) -> Result<()> {
+        instructions::initialize::handler(ctx, spending_limit)
     }
 
-    pub fn send_usdc(ctx: Context<SendUsdc>, amount: u64, is_emergency: bool) -> Result<()> {
-        instructions::send_usdc::handler(ctx, amount, is_emergency)
+    pub fn send_usdc(ctx: Context<SendUsdc>, amount: u64) -> Result<()> {
+        instructions::send_usdc::handler(ctx, amount)
     }
 
     pub fn propose(ctx: Context<Propose>, amount: u64, memo: String) -> Result<()> {
@@ -38,8 +38,8 @@ pub mod tandem_wallet {
         instructions::close_proposal::handler(ctx)
     }
 
-    pub fn set_tiers(ctx: Context<SetTiers>, tier1_max: u64, tier2_max: u64) -> Result<()> {
-        instructions::set_tiers::handler(ctx, tier1_max, tier2_max)
+    pub fn set_limit(ctx: Context<SetLimit>, spending_limit: u64) -> Result<()> {
+        instructions::set_limit::handler(ctx, spending_limit)
     }
 
     pub fn add_whitelist(ctx: Context<AddWhitelist>, address: Pubkey) -> Result<()> {

@@ -10,17 +10,19 @@ Tandem Wallet is a PDA-based smart account on Solana that gives AI agents contro
 - **Proposal PDA**: `["proposal", vault_pubkey, proposal_id_le_bytes]` — Pending large transfers
 - **WhitelistEntry PDA**: `["whitelist", vault_pubkey, address]` — Trusted recipients
 
-### Tier System
+### Spending Authority
 
-The vault uses a tiered spending system:
+The vault uses a single spending limit:
 1. **Whitelist bypass**: Whitelisted recipients have no spending limit
-2. **Tier 1** (≤ tier1_max): Agent can send autonomously
-3. **Tier 2** (≤ tier2_max): Agent can send with emergency flag
-4. **Tier 3** (> tier2_max): Requires proposal → human approval
+2. **At or below `spending_limit`**: Agent can send autonomously
+3. **Above `spending_limit`**: Requires proposal → human approval
+
+The human owner can change `spending_limit` at any time via `set_limit`. Setting
+it to `0` means every agent send requires human approval.
 
 ### Security Model
 
-- Human has full control: can send, pause, unpause, set tiers, whitelist
-- Agent has limited control: can send within tiers, propose, close proposals
+- Human has full control: can send, pause, unpause, set the spending limit, manage whitelist
+- Agent has limited control: can send up to the spending limit, propose, close proposals
 - Vault is paused → agent cannot send or propose
 - Human can always send, even when paused

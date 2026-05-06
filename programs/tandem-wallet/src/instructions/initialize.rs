@@ -2,7 +2,6 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount, Mint};
 use anchor_spl::associated_token::AssociatedToken;
 use crate::state::*;
-use crate::errors::*;
 use crate::events::*;
 
 #[derive(Accounts)]
@@ -38,16 +37,13 @@ pub struct Initialize<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handler(ctx: Context<Initialize>, tier1_max: u64, tier2_max: u64) -> Result<()> {
-    require!(tier1_max <= tier2_max, VaultError::InvalidThresholds);
-
+pub fn handler(ctx: Context<Initialize>, spending_limit: u64) -> Result<()> {
     let vault = &mut ctx.accounts.vault;
     vault.human = ctx.accounts.human.key();
     vault.agent = ctx.accounts.agent.key();
     vault.usdc_mint = ctx.accounts.usdc_mint.key();
     vault.vault_usdc_ata = ctx.accounts.vault_usdc_ata.key();
-    vault.tier1_max = tier1_max;
-    vault.tier2_max = tier2_max;
+    vault.spending_limit = spending_limit;
     vault.paused = false;
     vault.proposal_count = 0;
     vault.bump = ctx.bumps.vault;
