@@ -12,6 +12,8 @@ export function Dashboard() {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
   const [vaults, setVaults] = useState<VaultData[] | null>(null);
+  const [selectedVaultAddress, setSelectedVaultAddress] = useState<string | null>(null);
+  const [showCreateVault, setShowCreateVault] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -38,7 +40,14 @@ export function Dashboard() {
         paused: a.account.paused as boolean,
         proposalCount: a.account.proposalCount as BN,
       }));
+      mapped.sort((a, b) => a.agent.toBase58().localeCompare(b.agent.toBase58()));
       setVaults(mapped);
+      setSelectedVaultAddress((current) => {
+        if (current && mapped.some((vault) => vault.address.toBase58() === current)) {
+          return current;
+        }
+        return mapped[0]?.address.toBase58() ?? null;
+      });
     } catch (e: any) {
       setError(e.message ?? String(e));
     } finally {
@@ -48,7 +57,11 @@ export function Dashboard() {
 
   useEffect(() => {
     if (program && wallet) refresh();
-    else setVaults(null);
+    else {
+      setVaults(null);
+      setSelectedVaultAddress(null);
+      setShowCreateVault(false);
+    }
   }, [program, wallet, refresh]);
 
   if (!wallet) {
@@ -93,5 +106,71 @@ export function Dashboard() {
     return <CreateVaultForm onCreated={refresh} />;
   }
 
-  return <VaultDetail vault={vaults[0]} onChange={refresh} />;
+  const selectedVault =
+    vaults.find((vault) => vault.address.toBase58() === selectedVaultAddress) ?? vaults[0];
+
+  return (
+    <div className="space-y-6">
+      {vaults.length > 0 && (
+        <div className="brackets p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
+                Vaults
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {vaults.map((vault) => {
+                const address = vault.address.toBase58();
+                const selected = address === selectedVault.address.toBase58();
+                return (
+                  <button
+                    key={address}
+                    type="button"
+                    onClick={() => setSelectedVaultAddress(address)}
+                    className={`min-w-0 border px-3 py-2 text-left transition-colors ${
+                      selected
+                        ? "border-line bg-[rgba(10,186,181,0.08)] text-text"
+                        : "border-line-soft text-muted hover:border-line hover:text-text"
+                    }`}
+                  >
+                    <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display">
+                      Agent
+                    </span>
+                    <span className="block truncate text-sm font-display">
+                      {vault.agent.toBase58()}
+                    </span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setShowCreateVault((visible) => !visible)}
+                className={`border px-3 py-2 text-left transition-colors ${
+                  showCreateVault
+                    ? "border-line bg-[rgba(10,186,181,0.08)] text-text"
+                    : "border-line-soft text-muted hover:border-line hover:text-text"
+                }`}
+              >
+                <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display">
+                  New
+                </span>
+                <span className="block text-sm font-display">Create vault</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showCreateVault ? (
+        <CreateVaultForm
+          onCreated={() => {
+            setShowCreateVault(false);
+            refresh();
+          }}
+        />
+      ) : (
+        <VaultDetail vault={selectedVault} onChange={refresh} />
+      )}
+    </div>
+  );
 }
