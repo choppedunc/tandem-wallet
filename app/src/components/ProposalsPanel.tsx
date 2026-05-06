@@ -33,7 +33,7 @@ type Proposal = {
 type ProtocolConfigView = {
   feeBps: number;
   stakerRewardAta: PublicKey;
-  buybackAta: PublicKey;
+  treasuryAta: PublicKey;
 };
 
 type LastTransaction = {
@@ -213,7 +213,7 @@ export function ProposalsPanel({
       setProtocolConfig({
         feeBps: Number(cfg.feeBps),
         stakerRewardAta: cfg.stakerRewardAta as PublicKey,
-        buybackAta: cfg.buybackAta as PublicKey,
+        treasuryAta: cfg.treasuryAta as PublicKey,
       });
       setVaultBalance(vaultTokenAccount.amount);
     } catch (e: any) {
@@ -323,7 +323,7 @@ export function ProposalsPanel({
           recipientAta: proposal.recipientAta,
           protocolConfig: protocolConfigAddress,
           stakerRewardAta: protocolConfig.stakerRewardAta,
-          buybackAta: protocolConfig.buybackAta,
+          treasuryAta: protocolConfig.treasuryAta,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .rpc();

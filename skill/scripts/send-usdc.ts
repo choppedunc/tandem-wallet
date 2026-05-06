@@ -97,7 +97,7 @@ async function main() {
       whitelistEntry: whitelistEntry,
       protocolConfig: protocolConfigAddress,
       stakerRewardAta: new PublicKey(protocolConfig.stakerRewardAta),
-      buybackAta: new PublicKey(protocolConfig.buybackAta),
+      treasuryAta: new PublicKey(protocolConfig.treasuryAta),
       tokenProgram: TOKEN_PROGRAM_ID,
     })
     .signers([agentKeypair])

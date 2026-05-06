@@ -15,11 +15,11 @@ pub struct UpdateProtocolConfig<'info> {
     )]
     pub protocol_config: Account<'info, ProtocolConfig>,
 
-    /// New buyback ATA (optional — pass same as current if not changing)
+    /// New treasury ATA (optional — pass same as current if not changing)
     #[account(
-        constraint = buyback_ata.mint == protocol_config.usdc_mint,
+        constraint = treasury_ata.mint == protocol_config.usdc_mint,
     )]
-    pub buyback_ata: Account<'info, TokenAccount>,
+    pub treasury_ata: Account<'info, TokenAccount>,
 }
 
 pub fn handler(ctx: Context<UpdateProtocolConfig>, fee_bps: u16) -> Result<()> {
@@ -27,7 +27,7 @@ pub fn handler(ctx: Context<UpdateProtocolConfig>, fee_bps: u16) -> Result<()> {
 
     let config = &mut ctx.accounts.protocol_config;
     config.fee_bps = fee_bps;
-    config.buyback_ata = ctx.accounts.buyback_ata.key();
+    config.treasury_ata = ctx.accounts.treasury_ata.key();
 
     Ok(())
 }

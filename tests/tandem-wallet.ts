@@ -47,8 +47,8 @@ describe("tandem-wallet", () => {
   // Protocol accounts
   let protocolConfig: PublicKey;
   let stakerRewardAta: PublicKey;
-  let buybackWallet: Keypair;
-  let buybackAta: PublicKey;
+  let treasuryWallet: Keypair;
+  let treasuryAta: PublicKey;
   let stakeTandemAta: PublicKey;
 
   const SPENDING_LIMIT = new BN(50_000_000); // 50 USDC
@@ -59,14 +59,14 @@ describe("tandem-wallet", () => {
     mintAuthority = Keypair.generate();
     agent = Keypair.generate();
     recipient = Keypair.generate();
-    buybackWallet = Keypair.generate();
+    treasuryWallet = Keypair.generate();
     human = provider.wallet.publicKey;
 
     // Airdrop SOL
     const sig1 = await provider.connection.requestAirdrop(mintAuthority.publicKey, 10e9);
     const sig2 = await provider.connection.requestAirdrop(agent.publicKey, 10e9);
     const sig3 = await provider.connection.requestAirdrop(recipient.publicKey, 10e9);
-    const sig4 = await provider.connection.requestAirdrop(buybackWallet.publicKey, 10e9);
+    const sig4 = await provider.connection.requestAirdrop(treasuryWallet.publicKey, 10e9);
     await provider.connection.confirmTransaction(sig1);
     await provider.connection.confirmTransaction(sig2);
     await provider.connection.confirmTransaction(sig3);
@@ -103,11 +103,11 @@ describe("tandem-wallet", () => {
     stakerRewardAta = getAssociatedTokenAddressSync(usdcMint, protocolConfig, true);
     stakeTandemAta = getAssociatedTokenAddressSync(tandemMint, protocolConfig, true);
 
-    // Create buyback wallet's USDC ATA
-    const buybackAtaAccount = await getOrCreateAssociatedTokenAccount(
-      provider.connection, mintAuthority, usdcMint, buybackWallet.publicKey
+    // Create treasury wallet's USDC ATA
+    const treasuryAtaAccount = await getOrCreateAssociatedTokenAccount(
+      provider.connection, mintAuthority, usdcMint, treasuryWallet.publicKey
     );
-    buybackAta = buybackAtaAccount.address;
+    treasuryAta = treasuryAtaAccount.address;
   });
 
   // Helper: common fee accounts for send_usdc
@@ -115,7 +115,7 @@ describe("tandem-wallet", () => {
     return {
       protocolConfig,
       stakerRewardAta,
-      buybackAta,
+      treasuryAta,
     };
   }
 
@@ -152,7 +152,7 @@ describe("tandem-wallet", () => {
         usdcMint,
         tandemMint,
         stakerRewardAta,
-        buybackAta,
+        treasuryAta,
         stakeTandemAta,
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
@@ -167,7 +167,7 @@ describe("tandem-wallet", () => {
     expect(config.usdcMint.toString()).to.equal(usdcMint.toString());
     expect(config.tandemMint.toString()).to.equal(tandemMint.toString());
     expect(config.stakerRewardAta.toString()).to.equal(stakerRewardAta.toString());
-    expect(config.buybackAta.toString()).to.equal(buybackAta.toString());
+    expect(config.treasuryAta.toString()).to.equal(treasuryAta.toString());
     expect(config.totalStaked.toNumber()).to.equal(0);
   });
 
@@ -180,11 +180,11 @@ describe("tandem-wallet", () => {
 
   // --- Tier routing tests (now with fee accounts) ---
 
-  it("Agent sends Tier 1 amount (30 USDC) with 0.25% fee redirected to buyback when no one is staked", async () => {
+  it("Agent sends Tier 1 amount (30 USDC) with 0.25% fee redirected to treasury when no one is staked", async () => {
     const amount = new BN(30_000_000);
     const beforeRecipient = await getAccount(provider.connection, recipientAta);
     const beforeStakerReward = await getAccount(provider.connection, stakerRewardAta);
-    const beforeBuyback = await getAccount(provider.connection, buybackAta);
+    const beforeTreasury = await getAccount(provider.connection, treasuryAta);
 
     await program.methods
       .sendUsdc(amount)
@@ -202,17 +202,17 @@ describe("tandem-wallet", () => {
 
     const afterRecipient = await getAccount(provider.connection, recipientAta);
     const afterStakerReward = await getAccount(provider.connection, stakerRewardAta);
-    const afterBuyback = await getAccount(provider.connection, buybackAta);
+    const afterTreasury = await getAccount(provider.connection, treasuryAta);
 
     // Recipient gets exact amount
     expect(Number(afterRecipient.amount) - Number(beforeRecipient.amount)).to.equal(30_000_000);
 
     // Fee = 30_000_000 * 25 / 10000 = 75_000
-    // No one is staked yet, so the staker portion redirects to buyback.
+    // No one is staked yet, so the staker portion redirects to treasury.
     const stakerFee = Number(afterStakerReward.amount) - Number(beforeStakerReward.amount);
-    const buybackFee = Number(afterBuyback.amount) - Number(beforeBuyback.amount);
+    const treasuryFee = Number(afterTreasury.amount) - Number(beforeTreasury.amount);
     expect(stakerFee).to.equal(0);
-    expect(buybackFee).to.equal(75_000);
+    expect(treasuryFee).to.equal(75_000);
   });
 
   it("Send at exactly the limit succeeds (50 USDC)", async () => {
@@ -294,7 +294,7 @@ describe("tandem-wallet", () => {
   it("Human approves proposal (funds transferred + fee)", async () => {
     const beforeRecipient = await getAccount(provider.connection, recipientAta);
     const beforeStakerReward = await getAccount(provider.connection, stakerRewardAta);
-    const beforeBuyback = await getAccount(provider.connection, buybackAta);
+    const beforeTreasury = await getAccount(provider.connection, treasuryAta);
 
     await program.methods
       .approveProposal()
@@ -313,13 +313,13 @@ describe("tandem-wallet", () => {
     expect(Number(afterRecipient.amount) - Number(beforeRecipient.amount)).to.equal(150_000_000);
 
     // Fee = 150_000_000 * 25 / 10000 = 375_000.
-    // No one is staked yet, so the staker portion redirects to buyback.
+    // No one is staked yet, so the staker portion redirects to treasury.
     const afterStakerReward = await getAccount(provider.connection, stakerRewardAta);
-    const afterBuyback = await getAccount(provider.connection, buybackAta);
+    const afterTreasury = await getAccount(provider.connection, treasuryAta);
     const stakerFee = Number(afterStakerReward.amount) - Number(beforeStakerReward.amount);
-    const buybackFee = Number(afterBuyback.amount) - Number(beforeBuyback.amount);
+    const treasuryFee = Number(afterTreasury.amount) - Number(beforeTreasury.amount);
     expect(stakerFee).to.equal(0);
-    expect(buybackFee).to.equal(375_000);
+    expect(treasuryFee).to.equal(375_000);
 
     const proposal = await program.account.proposal.fetch(proposal1Pda);
     expect(proposal.executed).to.be.true;
@@ -574,7 +574,7 @@ describe("tandem-wallet", () => {
     // 100 lamports = 0.0001 USDC. fee = 100 * 25 / 10000 = 0
     const amount = new BN(100);
     const beforeStakerReward = await getAccount(provider.connection, stakerRewardAta);
-    const beforeBuyback = await getAccount(provider.connection, buybackAta);
+    const beforeTreasury = await getAccount(provider.connection, treasuryAta);
 
     await program.methods
       .sendUsdc(amount)
@@ -591,16 +591,16 @@ describe("tandem-wallet", () => {
       .rpc();
 
     const afterStakerReward = await getAccount(provider.connection, stakerRewardAta);
-    const afterBuyback = await getAccount(provider.connection, buybackAta);
+    const afterTreasury = await getAccount(provider.connection, treasuryAta);
 
     expect(Number(afterStakerReward.amount) - Number(beforeStakerReward.amount)).to.equal(0);
-    expect(Number(afterBuyback.amount) - Number(beforeBuyback.amount)).to.equal(0);
+    expect(Number(afterTreasury.amount) - Number(beforeTreasury.amount)).to.equal(0);
   });
 
-  it("100 USDC send: 0.25 USDC fee redirects fully to buyback when no one is staked", async () => {
+  it("100 USDC send: 0.25 USDC fee redirects fully to treasury when no one is staked", async () => {
     const amount = new BN(100_000_000); // 100 USDC
     const beforeStakerReward = await getAccount(provider.connection, stakerRewardAta);
-    const beforeBuyback = await getAccount(provider.connection, buybackAta);
+    const beforeTreasury = await getAccount(provider.connection, treasuryAta);
 
     await program.methods
       .sendUsdc(amount)
@@ -617,11 +617,11 @@ describe("tandem-wallet", () => {
       .rpc();
 
     const afterStakerReward = await getAccount(provider.connection, stakerRewardAta);
-    const afterBuyback = await getAccount(provider.connection, buybackAta);
+    const afterTreasury = await getAccount(provider.connection, treasuryAta);
 
     // Fee = 100_000_000 * 25 / 10000 = 250_000
     expect(Number(afterStakerReward.amount) - Number(beforeStakerReward.amount)).to.equal(0);
-    expect(Number(afterBuyback.amount) - Number(beforeBuyback.amount)).to.equal(250_000);
+    expect(Number(afterTreasury.amount) - Number(beforeTreasury.amount)).to.equal(250_000);
   });
 
   // --- Staking tests ---
@@ -811,7 +811,7 @@ describe("tandem-wallet", () => {
       .accounts({
         authority: human,
         protocolConfig,
-        buybackAta,
+        treasuryAta,
       })
       .rpc();
 
@@ -824,7 +824,7 @@ describe("tandem-wallet", () => {
       .accounts({
         authority: human,
         protocolConfig,
-        buybackAta,
+        treasuryAta,
       })
       .rpc();
   });

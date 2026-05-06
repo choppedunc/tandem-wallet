@@ -102,7 +102,7 @@
           "writable": true
         },
         {
-          "name": "buyback_ata",
+          "name": "treasury_ata",
           "writable": true
         },
         {
@@ -205,7 +205,7 @@
           "writable": true
         },
         {
-          "name": "buyback_ata",
+          "name": "treasury_ata",
           "writable": true
         },
         {
@@ -445,7 +445,7 @@
           "writable": true
         },
         {
-          "name": "buyback_ata"
+          "name": "treasury_ata"
         },
         {
           "name": "stake_tandem_ata",
@@ -652,7 +652,7 @@
           "writable": true
         },
         {
-          "name": "buyback_ata"
+          "name": "treasury_ata"
         }
       ],
       "args": [
@@ -1135,7 +1135,7 @@
             "type": "pubkey"
           },
           {
-            "name": "buyback_ata",
+            "name": "treasury_ata",
             "type": "pubkey"
           },
           {

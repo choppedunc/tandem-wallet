@@ -58,7 +58,7 @@ async function main() {
       recipientAta: proposalAccount.recipientAta,
       protocolConfig,
       stakerRewardAta: config.stakerRewardAta,
-      buybackAta: config.buybackAta,
+      treasuryAta: config.treasuryAta,
       tokenProgram: TOKEN_PROGRAM_ID,
     })
     .rpc();

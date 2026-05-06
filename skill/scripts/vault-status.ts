@@ -34,7 +34,7 @@ async function main() {
       tandemMint: protocolConfig.tandemMint.toBase58(),
       totalStaked: protocolConfig.totalStaked.toString(),
       stakerRewardAta: protocolConfig.stakerRewardAta.toBase58(),
-      buybackAta: protocolConfig.buybackAta.toBase58(),
+      treasuryAta: protocolConfig.treasuryAta.toBase58(),
     };
   } catch {
     result.protocol = "Not initialized";

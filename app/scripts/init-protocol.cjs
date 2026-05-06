@@ -25,17 +25,6 @@ function readKeypair(filePath) {
   return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(expanded, "utf8"))));
 }
 
-function readOrCreateKeypair(filePath) {
-  if (fs.existsSync(filePath)) {
-    return readKeypair(filePath);
-  }
-
-  const keypair = Keypair.generate();
-  fs.writeFileSync(filePath, JSON.stringify(Array.from(keypair.secretKey)));
-  fs.chmodSync(filePath, 0o600);
-  return keypair;
-}
-
 async function main() {
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com";
   const programId = new PublicKey(
@@ -46,7 +35,11 @@ async function main() {
   );
   const feeBps = Number(process.env.PROTOCOL_FEE_BPS || "25");
   const authorityKeypair = readKeypair(process.env.ANCHOR_WALLET || "~/.config/solana/id.json");
-  const buybackKeypair = readOrCreateKeypair(path.join(repoRoot, "devnet-buyback-keypair.json"));
+  const treasuryOwner = new PublicKey(
+    process.env.TREASURY_OWNER ||
+      process.env.TREASURY_WALLET ||
+      authorityKeypair.publicKey.toBase58()
+  );
 
   const connection = new Connection(rpcUrl, "confirmed");
   const wallet = new anchor.Wallet(authorityKeypair);
@@ -71,7 +64,7 @@ async function main() {
       usdcMint: config.usdcMint.toBase58(),
       tandemMint: config.tandemMint.toBase58(),
       stakerRewardAta: config.stakerRewardAta.toBase58(),
-      buybackAta: config.buybackAta.toBase58(),
+      treasuryAta: config.treasuryAta.toBase58(),
       totalStaked: config.totalStaked.toString(),
     }, null, 2));
     return;
@@ -84,11 +77,11 @@ async function main() {
     null,
     6
   );
-  const buybackAta = await getOrCreateAssociatedTokenAccount(
+  const treasuryAta = await getOrCreateAssociatedTokenAccount(
     connection,
     authorityKeypair,
     usdcMint,
-    buybackKeypair.publicKey
+    treasuryOwner
   );
   const stakerRewardAta = getAssociatedTokenAddressSync(usdcMint, protocolConfig, true);
   const stakeTandemAta = getAssociatedTokenAddressSync(tandemMint, protocolConfig, true);
@@ -101,7 +94,7 @@ async function main() {
       usdcMint,
       tandemMint,
       stakerRewardAta,
-      buybackAta: buybackAta.address,
+      treasuryAta: treasuryAta.address,
       stakeTandemAta,
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -121,8 +114,8 @@ async function main() {
     tandemMint: tandemMint.toBase58(),
     stakerRewardAta: stakerRewardAta.toBase58(),
     stakeTandemAta: stakeTandemAta.toBase58(),
-    buybackWallet: buybackKeypair.publicKey.toBase58(),
-    buybackAta: buybackAta.address.toBase58(),
+    treasuryWallet: treasuryOwner.toBase58(),
+    treasuryAta: treasuryAta.address.toBase58(),
   };
 
   fs.writeFileSync(

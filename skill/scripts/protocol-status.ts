@@ -13,12 +13,12 @@ async function main() {
 
   const tandemMint = new PublicKey(protocolConfig.tandemMint);
   const stakerRewardAtaAddress = new PublicKey(protocolConfig.stakerRewardAta);
-  const buybackAtaAddress = new PublicKey(protocolConfig.buybackAta);
+  const treasuryAtaAddress = new PublicKey(protocolConfig.treasuryAta);
 
   // Fetch TANDEM mint for decimals
   const mintInfo = await getMint(connection, tandemMint);
 
-  // Fetch reward pool and buyback balances
+  // Fetch reward pool and treasury balances
   let rewardPoolBalance = "0.00 USDC";
   try {
     const rewardAccount = await getAccount(connection, stakerRewardAtaAddress);
@@ -27,10 +27,10 @@ async function main() {
     // ATA may not exist yet
   }
 
-  let buybackBalance = "0.00 USDC";
+  let treasuryBalance = "0.00 USDC";
   try {
-    const buybackAccount = await getAccount(connection, buybackAtaAddress);
-    buybackBalance = formatUsdc(buybackAccount.amount);
+    const treasuryAccount = await getAccount(connection, treasuryAtaAddress);
+    treasuryBalance = formatUsdc(treasuryAccount.amount);
   } catch {
     // ATA may not exist yet
   }
@@ -42,7 +42,7 @@ async function main() {
     tandemMint: tandemMint.toBase58(),
     totalStaked: formatToken(protocolConfig.totalStaked, mintInfo.decimals, "TANDEM"),
     rewardPoolBalance,
-    buybackBalance,
+    treasuryBalance,
     totalRewardsClaimed: formatUsdc(protocolConfig.totalRewardsClaimed),
     totalRewardsProcessed: formatUsdc(protocolConfig.totalRewardsProcessed),
   };

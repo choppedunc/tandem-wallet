@@ -1,4 +1,5 @@
 const anchor = require("@coral-xyz/anchor");
+const { getOrCreateAssociatedTokenAccount } = require("@solana/spl-token");
 const { PublicKey } = require("@solana/web3.js");
 const fs = require("fs");
 const os = require("os");
@@ -15,8 +16,10 @@ function readKeypair(filePath) {
 async function main() {
   const feeBpsArg = process.argv[2] ?? process.env.PROTOCOL_FEE_BPS;
   if (feeBpsArg === undefined) {
-    throw new Error("Usage: update-protocol-fee.cjs <fee_bps>");
+    throw new Error("Usage: update-protocol-fee.cjs <fee_bps> [treasury_owner_wallet]");
   }
+  const treasuryOwnerArg = process.argv[3] ?? process.env.TREASURY_OWNER ?? process.env.TREASURY_WALLET;
+  const treasuryAtaArg = process.env.TREASURY_ATA;
 
   const feeBps = Number(feeBpsArg);
   if (!Number.isInteger(feeBps) || feeBps < 0 || feeBps > 10_000) {
@@ -41,13 +44,27 @@ async function main() {
     programId
   );
   const config = await program.account.protocolConfig.fetch(protocolConfig);
+  let treasuryAta = config.treasuryAta;
+
+  if (treasuryAtaArg) {
+    treasuryAta = new PublicKey(treasuryAtaArg);
+  } else if (treasuryOwnerArg) {
+    const treasuryOwner = new PublicKey(treasuryOwnerArg);
+    const account = await getOrCreateAssociatedTokenAccount(
+      connection,
+      authorityKeypair,
+      config.usdcMint,
+      treasuryOwner
+    );
+    treasuryAta = account.address;
+  }
 
   const signature = await program.methods
     .updateProtocolConfig(feeBps)
     .accounts({
       authority: authorityKeypair.publicKey,
       protocolConfig,
-      buybackAta: config.buybackAta,
+      treasuryAta,
     })
     .rpc();
 
@@ -56,7 +73,8 @@ async function main() {
     protocolConfig: protocolConfig.toBase58(),
     previousFeeBps: config.feeBps,
     feeBps,
-    buybackAta: config.buybackAta.toBase58(),
+    previousTreasuryAta: config.treasuryAta.toBase58(),
+    treasuryAta: treasuryAta.toBase58(),
   }, null, 2));
 }
 

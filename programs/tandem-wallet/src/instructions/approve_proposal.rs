@@ -50,19 +50,19 @@ pub struct ApproveProposal<'info> {
     )]
     pub protocol_config: Account<'info, ProtocolConfig>,
 
-    /// Staker reward USDC ATA (receives 50% of fee)
+    /// Staker reward USDC ATA (receives 50% of fee when staking is active)
     #[account(
         mut,
         constraint = staker_reward_ata.key() == protocol_config.staker_reward_ata,
     )]
     pub staker_reward_ata: Account<'info, TokenAccount>,
 
-    /// Buyback USDC ATA (receives 50% of fee)
+    /// Treasury USDC ATA (receives 50% of fee, or 100% when nobody is staked)
     #[account(
         mut,
-        constraint = buyback_ata.key() == protocol_config.buyback_ata,
+        constraint = treasury_ata.key() == protocol_config.treasury_ata,
     )]
-    pub buyback_ata: Account<'info, TokenAccount>,
+    pub treasury_ata: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
 }
@@ -101,7 +101,7 @@ pub fn handler(ctx: Context<ApproveProposal>) -> Result<()> {
         ctx.accounts.protocol_config.total_staked,
         &ctx.accounts.vault_usdc_ata,
         &ctx.accounts.staker_reward_ata,
-        &ctx.accounts.buyback_ata,
+        &ctx.accounts.treasury_ata,
         &ctx.accounts.vault.to_account_info(),
         &ctx.accounts.token_program,
         signer_seeds,
