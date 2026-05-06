@@ -150,11 +150,22 @@ export function Dashboard() {
     <div className="space-y-6">
       {vaults.length > 0 && (
         <div className="brackets p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
                 Vaults
               </p>
+              <button
+                type="button"
+                onClick={() => setShowCreateVault((visible) => !visible)}
+                className={`border px-3 py-2 text-xs font-display font-bold uppercase tracking-[0.14em] transition-colors ${
+                  showCreateVault
+                    ? "border-line text-text bg-[rgba(10,186,181,0.08)]"
+                    : "border-line-soft text-[#032b2a] bg-[linear-gradient(135deg,#0abab5,#6de7e3)] hover:border-line"
+                }`}
+              >
+                {showCreateVault ? "Cancel create" : "+ Create vault"}
+              </button>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {vaults.map((vault) => {
@@ -183,20 +194,6 @@ export function Dashboard() {
                   </button>
                 );
               })}
-              <button
-                type="button"
-                onClick={() => setShowCreateVault((visible) => !visible)}
-                className={`min-h-[4.5rem] border bg-[linear-gradient(135deg,#0abab5,#6de7e3)] px-4 py-3 text-left text-[#032b2a] shadow-[0_10px_26px_rgba(10,186,181,0.18)] transition-transform hover:-translate-y-px ${
-                  showCreateVault ? "border-line" : "border-line-soft"
-                }`}
-              >
-                <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display text-[#064240]">
-                  New
-                </span>
-                <span className="mt-1 block font-display text-base font-bold">
-                  Create vault
-                </span>
-              </button>
             </div>
           </div>
         </div>
