@@ -2,14 +2,40 @@
 
 import { useState } from "react";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
-import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import {
+  Keypair,
+  PublicKey,
+  SYSVAR_RENT_PUBKEY,
+  SystemProgram,
+} from "@solana/web3.js";
+import {
+  ACCOUNT_SIZE,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
 import bs58 from "bs58";
 import { getProgram } from "@/lib/program";
 import { vaultPda } from "@/lib/pdas";
-import { USDC_MINT } from "@/lib/network";
-import { usdcToRaw } from "@/lib/format";
-import { SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+import { NETWORK, USDC_MINT } from "@/lib/network";
+import { formatSol, usdcToRaw } from "@/lib/format";
+
+const VAULT_ACCOUNT_SIZE = 154;
+const CREATE_VAULT_FEE_BUFFER_LAMPORTS = 20_000;
+
+function normalizeCreateVaultError(error: unknown): string {
+  if (typeof error === "object" && error !== null) {
+    const maybeError = error as { message?: string };
+    if (maybeError.message?.includes("Attempt to debit an account")) {
+      return `Your connected ${NETWORK} wallet needs SOL before it can create a vault. Fund it with devnet SOL, then try again.`;
+    }
+    if (maybeError.message?.includes("User rejected")) {
+      return "The wallet rejected the signature request.";
+    }
+    if (maybeError.message) return maybeError.message;
+  }
+  return String(error);
+}
 
 export function CreateVaultForm({ onCreated }: { onCreated: () => void }) {
   const { connection } = useConnection();
@@ -47,6 +73,21 @@ export function CreateVaultForm({ onCreated }: { onCreated: () => void }) {
       const program = getProgram(connection, wallet);
       const vault = vaultPda(wallet.publicKey, agent);
       const vaultUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, vault, true);
+      const [payerBalance, vaultRent, tokenAccountRent] = await Promise.all([
+        connection.getBalance(wallet.publicKey),
+        connection.getMinimumBalanceForRentExemption(VAULT_ACCOUNT_SIZE),
+        connection.getMinimumBalanceForRentExemption(ACCOUNT_SIZE),
+      ]);
+      const minimumBalance =
+        vaultRent + tokenAccountRent + CREATE_VAULT_FEE_BUFFER_LAMPORTS;
+
+      if (payerBalance < minimumBalance) {
+        throw new Error(
+          `Your connected ${NETWORK} wallet needs SOL to create vault accounts. Balance: ${formatSol(
+            payerBalance
+          )}. Needed: about ${formatSol(minimumBalance)}.`
+        );
+      }
 
       await (program.methods as any)
         .initialize(usdcToRaw(limitNum))
@@ -65,7 +106,7 @@ export function CreateVaultForm({ onCreated }: { onCreated: () => void }) {
 
       onCreated();
     } catch (e: any) {
-      setError(e.message ?? String(e));
+      setError(normalizeCreateVaultError(e));
     } finally {
       setSubmitting(false);
     }
