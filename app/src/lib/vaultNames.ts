@@ -1,8 +1,10 @@
 import { PublicKey } from "@solana/web3.js";
 
 const STORAGE_KEY = "tandem:vault-names:v1";
+const ORDER_STORAGE_KEY = "tandem:vault-created-order:v1";
 
 export type VaultNames = Record<string, string>;
+export type VaultCreatedOrder = Record<string, number>;
 
 export function fallbackVaultName(address: PublicKey): string {
   const value = address.toBase58();
@@ -32,5 +34,32 @@ export function saveVaultName(address: PublicKey | string, name: string): VaultN
   else delete next[key];
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  return next;
+}
+
+export function loadVaultCreatedOrder(): VaultCreatedOrder {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(ORDER_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as VaultCreatedOrder;
+  } catch {
+    return {};
+  }
+}
+
+export function saveVaultCreatedAt(
+  address: PublicKey | string,
+  createdAt = Date.now()
+): VaultCreatedOrder {
+  const key = typeof address === "string" ? address : address.toBase58();
+  const current = loadVaultCreatedOrder();
+  const next = {
+    ...current,
+    [key]: current[key] ?? createdAt,
+  };
+  window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next));
   return next;
 }

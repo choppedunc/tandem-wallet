@@ -5,7 +5,13 @@ import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { getProgram } from "@/lib/program";
-import { fallbackVaultName, loadVaultNames, saveVaultName } from "@/lib/vaultNames";
+import {
+  fallbackVaultName,
+  loadVaultCreatedOrder,
+  loadVaultNames,
+  saveVaultCreatedAt,
+  saveVaultName,
+} from "@/lib/vaultNames";
 import { CreateVaultForm } from "./CreateVaultForm";
 import { VaultDetail, type VaultData } from "./VaultDetail";
 
@@ -14,6 +20,7 @@ export function Dashboard() {
   const wallet = useAnchorWallet();
   const [vaults, setVaults] = useState<VaultData[] | null>(null);
   const [vaultNames, setVaultNames] = useState<Record<string, string>>({});
+  const [vaultCreatedOrder, setVaultCreatedOrder] = useState<Record<string, number>>({});
   const [selectedVaultAddress, setSelectedVaultAddress] = useState<string | null>(null);
   const [showCreateVault, setShowCreateVault] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +33,7 @@ export function Dashboard() {
 
   useEffect(() => {
     setVaultNames(loadVaultNames());
+    setVaultCreatedOrder(loadVaultCreatedOrder());
   }, []);
 
   const refresh = useCallback(async () => {
@@ -46,20 +54,34 @@ export function Dashboard() {
         paused: a.account.paused as boolean,
         proposalCount: a.account.proposalCount as BN,
       }));
-      mapped.sort((a, b) => a.agent.toBase58().localeCompare(b.agent.toBase58()));
-      setVaults(mapped);
+      const ordered = mapped
+        .map((vault, index) => ({ vault, index }))
+        .sort((a, b) => {
+          const aCreatedAt = vaultCreatedOrder[a.vault.address.toBase58()];
+          const bCreatedAt = vaultCreatedOrder[b.vault.address.toBase58()];
+
+          if (aCreatedAt !== undefined && bCreatedAt !== undefined) {
+            return aCreatedAt - bCreatedAt;
+          }
+          if (aCreatedAt !== undefined) return -1;
+          if (bCreatedAt !== undefined) return 1;
+          return a.index - b.index;
+        })
+        .map(({ vault }) => vault);
+
+      setVaults(ordered);
       setSelectedVaultAddress((current) => {
-        if (current && mapped.some((vault) => vault.address.toBase58() === current)) {
+        if (current && ordered.some((vault) => vault.address.toBase58() === current)) {
           return current;
         }
-        return mapped[0]?.address.toBase58() ?? null;
+        return ordered[0]?.address.toBase58() ?? null;
       });
     } catch (e: any) {
       setError(e.message ?? String(e));
     } finally {
       setLoading(false);
     }
-  }, [program, wallet]);
+  }, [program, vaultCreatedOrder, wallet]);
 
   useEffect(() => {
     if (program && wallet) refresh();
@@ -113,6 +135,7 @@ export function Dashboard() {
       <CreateVaultForm
         onCreated={(vault, name) => {
           setVaultNames(saveVaultName(vault, name));
+          setVaultCreatedOrder(saveVaultCreatedAt(vault));
           setSelectedVaultAddress(vault.toBase58());
           refresh();
         }}
@@ -177,6 +200,7 @@ export function Dashboard() {
         <CreateVaultForm
           onCreated={(vault, name) => {
             setVaultNames(saveVaultName(vault, name));
+            setVaultCreatedOrder(saveVaultCreatedAt(vault));
             setSelectedVaultAddress(vault.toBase58());
             setShowCreateVault(false);
             refresh();
