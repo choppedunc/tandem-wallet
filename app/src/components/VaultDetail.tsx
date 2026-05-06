@@ -172,7 +172,7 @@ export function VaultDetail({
         </nav>
       </div>
 
-      {tab === "overview" && <VaultOverview vault={vault} />}
+      {tab === "overview" && <VaultOverview vault={vault} usdcBalance={usdcBalance} />}
       {tab === "proposals" && <ProposalsPanel vault={vault} onChange={handleChange} />}
       {tab === "history" && <ProposalHistoryPanel vault={vault} />}
       {tab === "settings" && <SettingsPanel vault={vault} onChange={handleChange} />}
