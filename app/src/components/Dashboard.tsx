@@ -160,13 +160,9 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setShowCreateVault((visible) => !visible)}
-                className={`brackets min-h-[4.5rem] px-4 py-3 text-center transition-colors ${
-                  showCreateVault
-                    ? "text-text"
-                    : "text-muted hover:text-text"
-                }`}
+                className="min-h-[4.5rem] border border-line-soft bg-[linear-gradient(135deg,#0abab5,#6de7e3)] px-4 py-3 text-left text-[#032b2a] shadow-[0_10px_26px_rgba(10,186,181,0.18)] transition-transform hover:-translate-y-px"
               >
-                <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display text-accent">
+                <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display text-[#064240]">
                   New
                 </span>
                 <span className="mt-1 block font-display text-base font-bold">
