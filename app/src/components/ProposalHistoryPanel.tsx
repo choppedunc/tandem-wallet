@@ -6,7 +6,7 @@ import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { formatUsdc, shortAddress } from "@/lib/format";
-import { NETWORK, PROGRAM_ID } from "@/lib/network";
+import { NETWORK, PROGRAM_ID, RPC_URL } from "@/lib/network";
 import { proposalPda } from "@/lib/pdas";
 import {
   loadProposalTransactions,
@@ -15,8 +15,8 @@ import {
 import { getProgram } from "@/lib/program";
 import type { VaultData } from "./VaultDetail";
 
-const TX_HISTORY_SIGNATURE_LIMIT = 100;
-const TX_HISTORY_BATCH_SIZE = 10;
+const TX_HISTORY_SIGNATURE_LIMIT = 20;
+const TX_HISTORY_CACHE_MS = 30_000;
 
 type ProposalHistoryItem = {
   pda: PublicKey;
@@ -50,7 +50,22 @@ type HistoryProposalTransaction = ProposalTransactionRecord & {
 type ChainEventHistory = {
   directSends: DirectSendHistoryItem[];
   proposalTransactions: Record<string, HistoryProposalTransaction>;
+  incomplete: boolean;
 };
+
+type RpcSignatureInfo = {
+  signature: string;
+  blockTime: number | null;
+};
+
+type RpcTransaction = {
+  slot: number;
+  blockTime: number | null;
+  meta: {
+    err: unknown;
+    logMessages: string[] | null;
+  } | null;
+} | null;
 
 type ProposalHistoryRow = {
   kind: "proposal";
@@ -67,6 +82,12 @@ type DirectSendHistoryRow = {
 };
 
 type HistoryRow = ProposalHistoryRow | DirectSendHistoryRow;
+
+const chainHistoryCache = new Map<
+  string,
+  { loadedAt: number; history: ChainEventHistory }
+>();
+const chainHistoryInFlight = new Map<string, Promise<ChainEventHistory>>();
 
 function historyStatus(proposal: ProposalHistoryItem): "accepted" | "rejected" | "pending" {
   if (proposal.executed) return "accepted";
@@ -98,9 +119,60 @@ function formatUnixDate(rawTimestamp: BN | number | null | undefined): string {
 function normalizeError(error: unknown): string {
   if (typeof error === "object" && error !== null) {
     const maybeError = error as { message?: string };
+    if (maybeError.message?.includes("429")) {
+      return "Direct transaction history is temporarily rate-limited by devnet RPC.";
+    }
     if (maybeError.message) return maybeError.message;
   }
   return String(error);
+}
+
+async function rpcRequest<T>(method: string, params: unknown[]): Promise<T> {
+  const response = await fetch(RPC_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: `tandem-${method}`,
+      method,
+      params,
+    }),
+  });
+
+  if (response.status === 429) {
+    throw new Error("Direct transaction history is temporarily rate-limited by devnet RPC.");
+  }
+  if (!response.ok) {
+    throw new Error(`Devnet RPC returned ${response.status}.`);
+  }
+
+  const payload = await response.json();
+  if (payload.error) {
+    if (payload.error.code === 429) {
+      throw new Error("Direct transaction history is temporarily rate-limited by devnet RPC.");
+    }
+    throw new Error(payload.error.message ?? "Devnet RPC request failed.");
+  }
+
+  return payload.result as T;
+}
+
+async function fetchVaultSignatures(vault: PublicKey): Promise<RpcSignatureInfo[]> {
+  return rpcRequest<RpcSignatureInfo[]>("getSignaturesForAddress", [
+    vault.toBase58(),
+    { limit: TX_HISTORY_SIGNATURE_LIMIT },
+  ]);
+}
+
+async function fetchTransaction(signature: string): Promise<RpcTransaction> {
+  return rpcRequest<RpcTransaction>("getTransaction", [
+    signature,
+    {
+      encoding: "json",
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0,
+    },
+  ]);
 }
 
 function asPublicKey(value: unknown): PublicKey {
@@ -329,6 +401,7 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Record<string, HistoryProposalTransaction>>({});
   const [error, setError] = useState<string | null>(null);
+  const [scanWarning, setScanWarning] = useState<string | null>(null);
 
   const program = useMemo(
     () => (wallet ? getProgram(connection, wallet) : null),
@@ -336,27 +409,33 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
   );
 
   const loadVaultEvents = useCallback(async (): Promise<ChainEventHistory> => {
-    if (!program) return { directSends: [], proposalTransactions: {} };
+    if (!program) return { directSends: [], proposalTransactions: {}, incomplete: false };
 
-    const parser = new EventParser(PROGRAM_ID, (program as any).coder);
-    const signatures = await connection.getSignaturesForAddress(vault.address, {
-      limit: TX_HISTORY_SIGNATURE_LIMIT,
-    });
-    const directSends: DirectSendHistoryItem[] = [];
-    const proposalTransactions: Record<string, HistoryProposalTransaction> = {};
+    const cacheKey = vault.address.toBase58();
+    const cached = chainHistoryCache.get(cacheKey);
+    if (cached && Date.now() - cached.loadedAt < TX_HISTORY_CACHE_MS) {
+      return cached.history;
+    }
 
-    for (let start = 0; start < signatures.length; start += TX_HISTORY_BATCH_SIZE) {
-      const signatureBatch = signatures.slice(start, start + TX_HISTORY_BATCH_SIZE);
-      const transactions = await connection.getTransactions(
-        signatureBatch.map((signatureInfo) => signatureInfo.signature),
-        {
-          commitment: "confirmed",
-          maxSupportedTransactionVersion: 0,
+    const inFlight = chainHistoryInFlight.get(cacheKey);
+    if (inFlight) return inFlight;
+
+    const request = (async () => {
+      const parser = new EventParser(PROGRAM_ID, (program as any).coder);
+      const signatures = await fetchVaultSignatures(vault.address);
+      const directSends: DirectSendHistoryItem[] = [];
+      const proposalTransactions: Record<string, HistoryProposalTransaction> = {};
+      let incomplete = false;
+
+      for (const signatureInfo of signatures) {
+        let transaction: RpcTransaction;
+        try {
+          transaction = await fetchTransaction(signatureInfo.signature);
+        } catch {
+          incomplete = true;
+          continue;
         }
-      );
 
-      for (const [index, transaction] of transactions.entries()) {
-        const signatureInfo = signatureBatch[index];
         const logs = transaction?.meta?.logMessages;
         if (!transaction || transaction.meta?.err || !logs) continue;
 
@@ -398,10 +477,19 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
           eventIndex += 1;
         }
       }
-    }
 
-    return { directSends, proposalTransactions };
-  }, [connection, program, vault.address]);
+      const history = { directSends, proposalTransactions, incomplete };
+      chainHistoryCache.set(cacheKey, { loadedAt: Date.now(), history });
+      return history;
+    })();
+
+    chainHistoryInFlight.set(cacheKey, request);
+    try {
+      return await request;
+    } finally {
+      chainHistoryInFlight.delete(cacheKey);
+    }
+  }, [program, vault.address]);
 
   const refresh = useCallback(async () => {
     if (!program) return;
@@ -409,6 +497,7 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
     const localTransactions = loadProposalTransactions();
     setTransactions(localTransactions);
     setError(null);
+    setScanWarning(null);
 
     try {
       const accounts = await (program.account as any).proposal.all([
@@ -425,19 +514,31 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
         cancelled: account.account.cancelled as boolean,
         memo: account.account.memo as string,
       }));
+      const proposalRows: HistoryRow[] = mapped
+        .map((proposal) => {
+          const proposalKey = proposal.pda.toBase58();
+          return {
+            kind: "proposal" as const,
+            id: proposalKey,
+            proposal,
+            sortTime: proposalSortTime(proposal, localTransactions[proposalKey]),
+          };
+        })
+        .sort((a, b) => b.sortTime - a.sortTime);
+
+      setRows(proposalRows);
 
       let chainHistory: ChainEventHistory = {
         directSends: [],
         proposalTransactions: {},
+        incomplete: false,
       };
-      let scanError: string | null = null;
 
       try {
         chainHistory = await loadVaultEvents();
       } catch (eventError) {
-        scanError = `Loaded proposals, but recent direct transaction scan failed: ${normalizeError(
-          eventError
-        )}`;
+        setScanWarning(normalizeError(eventError));
+        return;
       }
 
       const mergedTransactions = mergeTransactionRecords(
@@ -465,7 +566,11 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
       nextRows.sort((a, b) => b.sortTime - a.sortTime);
       setTransactions(mergedTransactions);
       setRows(nextRows);
-      setError(scanError);
+      setScanWarning(
+        chainHistory.incomplete
+          ? "Some recent direct transactions could not be checked because devnet RPC is rate-limiting transaction lookups."
+          : null
+      );
     } catch (e: any) {
       setError(e.message ?? String(e));
     }
@@ -499,6 +604,12 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
       {error && (
         <div className="border border-line p-3 text-sm text-accent-2 bg-[rgba(10,186,181,0.06)]">
           {error}
+        </div>
+      )}
+
+      {scanWarning && (
+        <div className="border border-line-soft bg-[rgba(3,17,19,0.72)] p-3 text-xs text-muted">
+          {scanWarning}
         </div>
       )}
 
