@@ -13,6 +13,7 @@ import {
 import BN from "bn.js";
 import { getProgram } from "@/lib/program";
 import { NETWORK } from "@/lib/network";
+import { saveProposalTransaction } from "@/lib/proposalTransactions";
 import { protocolConfigPda } from "@/lib/pdas";
 import { formatUsdc, shortAddress } from "@/lib/format";
 import type { VaultData } from "./VaultDetail";
@@ -333,6 +334,11 @@ export function ProposalsPanel({
         signature,
         setupSignature,
       });
+      saveProposalTransaction(proposalKey, {
+        action: "approved",
+        signature,
+        setupSignature,
+      });
       await refresh();
       onChange();
     } catch (e: any) {
@@ -361,6 +367,10 @@ export function ProposalsPanel({
       setLastTransaction({
         action: "cancelled",
         proposalKey,
+        signature,
+      });
+      saveProposalTransaction(proposalKey, {
+        action: "cancelled",
         signature,
       });
       await refresh();
@@ -450,6 +460,12 @@ export function ProposalsPanel({
         <div className="border border-line-soft bg-[rgba(3,17,19,0.78)] p-4 text-sm">
           <div className="font-display text-accent-2 uppercase tracking-[0.14em] text-xs">
             Proposal {lastTransaction.action}
+          </div>
+          <div className="mt-2 grid gap-1 text-xs font-display">
+            <span className="text-muted uppercase tracking-[0.14em]">
+              Transaction ID
+            </span>
+            <span className="break-all text-text">{lastTransaction.signature}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
             {lastTransaction.setupSignature && (

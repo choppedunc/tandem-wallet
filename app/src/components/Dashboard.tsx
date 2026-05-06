@@ -148,10 +148,10 @@ export function Dashboard() {
                         : "border-line-soft text-muted hover:border-line hover:text-text"
                     }`}
                   >
-                    <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display">
+                    <span className="block truncate font-display text-base font-bold text-text">
                       {vaultNames[address] ?? fallbackVaultName(vault.address)}
                     </span>
-                    <span className="block truncate text-sm font-display">
+                    <span className="mt-1 block truncate text-xs font-display text-muted">
                       {vault.agent.toBase58()}
                     </span>
                   </button>
@@ -160,16 +160,18 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setShowCreateVault((visible) => !visible)}
-                className={`border px-3 py-2 text-left transition-colors ${
+                className={`brackets min-h-[4.5rem] px-4 py-3 text-center transition-colors ${
                   showCreateVault
-                    ? "border-line bg-[rgba(10,186,181,0.08)] text-text"
-                    : "border-line-soft text-muted hover:border-line hover:text-text"
+                    ? "text-text"
+                    : "text-muted hover:text-text"
                 }`}
               >
-                <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display">
+                <span className="block text-[0.65rem] uppercase tracking-[0.16em] font-display text-accent">
                   New
                 </span>
-                <span className="block text-sm font-display">Create vault</span>
+                <span className="mt-1 block font-display text-base font-bold">
+                  Create vault
+                </span>
               </button>
             </div>
           </div>
