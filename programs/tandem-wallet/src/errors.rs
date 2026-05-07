@@ -40,4 +40,6 @@ pub enum VaultError {
     InvalidTreasuryAta,
     #[msg("Vault token account must be the vault's associated USDC token account")]
     InvalidVaultAta,
+    #[msg("New authority must not be the default public key")]
+    InvalidAuthority,
 }

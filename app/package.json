@@ -8,10 +8,12 @@
     "start": "next start",
     "approve-proposal:devnet": "node scripts/approve-proposal.cjs",
     "agent-send-usdc:devnet": "node scripts/agent-send-usdc.cjs",
+    "check-admin:devnet": "node scripts/check-admin-state.cjs",
     "create-test-vault:devnet": "node scripts/create-test-vault.cjs",
     "init-protocol:devnet": "node scripts/init-protocol.cjs",
     "set-vault-limit:devnet": "node scripts/set-vault-limit.cjs",
     "smoke:devnet": "node scripts/devnet-smoke-tests.cjs",
+    "transfer-protocol-authority:devnet": "node scripts/transfer-protocol-authority.cjs",
     "update-protocol-fee:devnet": "node scripts/update-protocol-fee.cjs",
     "lint": "eslint"
   },

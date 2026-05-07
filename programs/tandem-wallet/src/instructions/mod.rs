@@ -14,6 +14,7 @@ pub mod stake;
 pub mod unstake;
 pub mod claim_rewards;
 pub mod update_protocol_config;
+pub mod transfer_protocol_authority;
 
 pub use initialize::*;
 pub use send_usdc::*;
@@ -31,3 +32,4 @@ pub use stake::*;
 pub use unstake::*;
 pub use claim_rewards::*;
 pub use update_protocol_config::*;
+pub use transfer_protocol_authority::*;

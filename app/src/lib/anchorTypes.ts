@@ -34,6 +34,7 @@ export type ProposalAccount = {
 };
 
 export type ProtocolConfigAccount = {
+  authority: PublicKey;
   feeBps: number;
   stakerRewardAta: PublicKey;
   treasuryAta: PublicKey;
@@ -67,6 +68,7 @@ export type TandemProgram = Program & {
     removeWhitelist(): MethodBuilder;
     pause(): MethodBuilder;
     unpause(): MethodBuilder;
+    transferProtocolAuthority(newAuthority: PublicKey): MethodBuilder;
   };
 };
 

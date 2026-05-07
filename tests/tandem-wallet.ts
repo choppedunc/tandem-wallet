@@ -978,6 +978,118 @@ describe("tandem-wallet", () => {
     }
   });
 
+  it("Rejects protocol config updates by non-authority", async () => {
+    try {
+      await program.methods
+        .updateProtocolConfig(50)
+        .accounts({
+          authority: attacker.publicKey,
+          protocolConfig,
+          treasuryAta,
+        })
+        .signers([attacker])
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("OnlyAuthority");
+    }
+  });
+
+  it("Rejects invalid protocol fee updates", async () => {
+    try {
+      await program.methods
+        .updateProtocolConfig(10_001)
+        .accounts({
+          authority: human,
+          protocolConfig,
+          treasuryAta,
+        })
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidFeeBps");
+    }
+  });
+
+  it("Rejects protocol authority transfer to the default public key", async () => {
+    try {
+      await program.methods
+        .transferProtocolAuthority(SystemProgram.programId)
+        .accounts({
+          authority: human,
+          protocolConfig,
+        })
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidAuthority");
+    }
+  });
+
+  it("Transfers protocol authority and prevents old-authority updates", async () => {
+    const nextAuthority = Keypair.generate();
+
+    await program.methods
+      .transferProtocolAuthority(nextAuthority.publicKey)
+      .accounts({
+        authority: human,
+        protocolConfig,
+      })
+      .rpc();
+
+    let config = await program.account.protocolConfig.fetch(protocolConfig);
+    expect(config.authority.toString()).to.equal(nextAuthority.publicKey.toString());
+
+    try {
+      await program.methods
+        .updateProtocolConfig(50)
+        .accounts({
+          authority: human,
+          protocolConfig,
+          treasuryAta,
+        })
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("OnlyAuthority");
+    }
+
+    await program.methods
+      .updateProtocolConfig(50)
+      .accounts({
+        authority: nextAuthority.publicKey,
+        protocolConfig,
+        treasuryAta,
+      })
+      .signers([nextAuthority])
+      .rpc();
+
+    config = await program.account.protocolConfig.fetch(protocolConfig);
+    expect(config.feeBps).to.equal(50);
+
+    await program.methods
+      .transferProtocolAuthority(human)
+      .accounts({
+        authority: nextAuthority.publicKey,
+        protocolConfig,
+      })
+      .signers([nextAuthority])
+      .rpc();
+
+    await program.methods
+      .updateProtocolConfig(FEE_BPS)
+      .accounts({
+        authority: human,
+        protocolConfig,
+        treasuryAta,
+      })
+      .rpc();
+
+    config = await program.account.protocolConfig.fetch(protocolConfig);
+    expect(config.authority.toString()).to.equal(human.toString());
+    expect(config.feeBps).to.equal(FEE_BPS);
+  });
+
   it("Update protocol config", async () => {
     await program.methods
       .updateProtocolConfig(50) // change to 0.50%

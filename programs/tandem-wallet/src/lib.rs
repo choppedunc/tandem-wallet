@@ -77,4 +77,11 @@ pub mod tandem_wallet {
     pub fn update_protocol_config(ctx: Context<UpdateProtocolConfig>, fee_bps: u16) -> Result<()> {
         instructions::update_protocol_config::handler(ctx, fee_bps)
     }
+
+    pub fn transfer_protocol_authority(
+        ctx: Context<TransferProtocolAuthority>,
+        new_authority: Pubkey,
+    ) -> Result<()> {
+        instructions::transfer_protocol_authority::handler(ctx, new_authority)
+    }
 }

@@ -668,6 +668,35 @@
           "type": "u16"
         }
       ]
+    },
+    {
+      "name": "transfer_protocol_authority",
+      "discriminator": [
+        35,
+        76,
+        36,
+        77,
+        136,
+        112,
+        158,
+        222
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "protocol_config",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_authority",
+          "type": "pubkey"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1016,6 +1045,11 @@
       "code": 6018,
       "name": "InvalidVaultAta",
       "msg": "Vault token account must be the vault's associated USDC token account"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidAuthority",
+      "msg": "New authority must not be the default public key"
     }
   ],
   "types": [
