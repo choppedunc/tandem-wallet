@@ -440,7 +440,7 @@ export function ProposalsPanel({
         : !isHumanWallet
       ? "Connect the human owner wallet to approve."
       : vault.paused
-        ? "Unpause the vault before approving."
+        ? "Unpause agent access before approving."
         : hasInsufficientFunds
           ? "Vault balance is too low for the amount plus protocol fee."
           : !recipientAtaMatches

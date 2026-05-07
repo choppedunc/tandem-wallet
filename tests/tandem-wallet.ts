@@ -520,13 +520,13 @@ describe("tandem-wallet", () => {
     await program.methods.setLimit(new BN(150_000_000)).accounts({ human, vault }).rpc();
   });
 
-  it("Human pauses vault", async () => {
+  it("Human pauses agent and proposal actions", async () => {
     await program.methods.pause().accounts({ human, vault }).rpc();
     const v = await program.account.vault.fetch(vault);
     expect(v.paused).to.be.true;
   });
 
-  it("Agent send fails when paused", async () => {
+  it("Agent send fails when agent actions are paused", async () => {
     try {
       await program.methods
         .sendUsdc(new BN(10_000_000))
@@ -547,7 +547,7 @@ describe("tandem-wallet", () => {
     }
   });
 
-  it("Human can still send when paused", async () => {
+  it("Human can still recover funds while agent actions are paused", async () => {
     const before = await getAccount(provider.connection, recipientAta);
 
     await program.methods
@@ -567,7 +567,7 @@ describe("tandem-wallet", () => {
     expect(Number(after.amount) - Number(before.amount)).to.equal(10_000_000);
   });
 
-  it("Human unpauses vault", async () => {
+  it("Human unpauses agent and proposal actions", async () => {
     await program.methods.unpause().accounts({ human, vault }).rpc();
     const v = await program.account.vault.fetch(vault);
     expect(v.paused).to.be.false;

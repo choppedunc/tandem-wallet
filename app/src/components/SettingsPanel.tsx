@@ -105,11 +105,11 @@ export function SettingsPanel({
 
       <section className="brackets p-6">
         <p className="text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display mb-3">
-          Pause
+          Agent pause
         </p>
         <p className="text-sm text-muted mb-5 max-w-xl">
-          Pausing blocks the agent from sending or proposing. You can still
-          send while paused.
+          Pausing blocks agent sends, new proposals, and proposal approvals.
+          Direct human sends remain available for recovery.
         </p>
         <button
           onClick={togglePause}
@@ -123,8 +123,8 @@ export function SettingsPanel({
           {busy === "pause"
             ? "Working…"
             : vault.paused
-              ? "Unpause vault"
-              : "Pause vault"}
+              ? "Unpause agent"
+              : "Pause agent"}
         </button>
       </section>
     </div>

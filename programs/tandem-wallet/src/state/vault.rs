@@ -14,7 +14,7 @@ pub struct Vault {
     /// Maximum amount (in USDC minor units) the agent can send per tx without human approval.
     /// Anything above this requires a proposal. Setting this to 0 means every send requires approval.
     pub spending_limit: u64,
-    /// Whether the vault is paused (blocks new proposals).
+    /// Whether agent/proposal actions are paused. Direct human sends remain available for recovery.
     pub paused: bool,
     /// Running count of proposals created against this vault.
     pub proposal_count: u64,

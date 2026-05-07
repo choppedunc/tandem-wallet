@@ -171,7 +171,7 @@ export function VaultDetail({
           <Stat label="Limit" value={formatUsdc(vault.spendingLimit)} />
           <Stat
             label="Status"
-            value={vault.paused ? "Paused" : "Active"}
+            value={vault.paused ? "Agent paused" : "Active"}
             accent={vault.paused ? "text-accent-2" : "text-accent"}
           />
         </div>
