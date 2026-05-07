@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
-import BN from "bn.js";
 import { getProgram } from "@/lib/program";
 import {
   fallbackVaultName,
@@ -41,18 +39,18 @@ export function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const accounts = await (program.account as any).vault.all([
+      const accounts = await program.account.vault.all([
         { memcmp: { offset: 8, bytes: wallet.publicKey.toBase58() } },
       ]);
-      const mapped: VaultData[] = accounts.map((a: any) => ({
-        address: a.publicKey as PublicKey,
-        human: a.account.human as PublicKey,
-        agent: a.account.agent as PublicKey,
-        usdcMint: a.account.usdcMint as PublicKey,
-        vaultUsdcAta: a.account.vaultUsdcAta as PublicKey,
-        spendingLimit: a.account.spendingLimit as BN,
-        paused: a.account.paused as boolean,
-        proposalCount: a.account.proposalCount as BN,
+      const mapped: VaultData[] = accounts.map((a) => ({
+        address: a.publicKey,
+        human: a.account.human,
+        agent: a.account.agent,
+        usdcMint: a.account.usdcMint,
+        vaultUsdcAta: a.account.vaultUsdcAta,
+        spendingLimit: a.account.spendingLimit,
+        paused: a.account.paused,
+        proposalCount: a.account.proposalCount,
       }));
       const ordered = mapped
         .map((vault, index) => ({ vault, index }))
@@ -76,8 +74,8 @@ export function Dashboard() {
         }
         return ordered[0]?.address.toBase58() ?? null;
       });
-    } catch (e: any) {
-      setError(e.message ?? String(e));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import { BorshCoder, EventParser } from "@coral-xyz/anchor";
+import { BorshCoder, EventParser, type Idl } from "@coral-xyz/anchor";
 import { NextResponse } from "next/server";
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
@@ -8,6 +8,7 @@ import { proposalPda } from "@/lib/pdas";
 
 const TX_HISTORY_SIGNATURE_LIMIT = 20;
 const CACHE_MS = 30_000;
+const tandemIdl = idl as unknown as Idl;
 
 type RpcSignatureInfo = {
   signature: string;
@@ -109,7 +110,7 @@ async function fetchVaultHistory(vault: PublicKey): Promise<HistoryResponse> {
   if (existing) return existing;
 
   const request = (async () => {
-    const parser = new EventParser(PROGRAM_ID, new BorshCoder(idl as any));
+    const parser = new EventParser(PROGRAM_ID, new BorshCoder(tandemIdl));
     const signatures = await rpcRequest<RpcSignatureInfo[]>("getSignaturesForAddress", [
       vault.toBase58(),
       { limit: TX_HISTORY_SIGNATURE_LIMIT },

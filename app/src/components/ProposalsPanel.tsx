@@ -191,35 +191,35 @@ export function ProposalsPanel({
     try {
       const protocolConfigAddress = protocolConfigPda();
       const [accts, cfg, vaultTokenAccount] = await Promise.all([
-        (program.account as any).proposal.all([
+        program.account.proposal.all([
           { memcmp: { offset: 8, bytes: vault.address.toBase58() } },
         ]),
-        (program.account as any).protocolConfig.fetch(protocolConfigAddress),
+        program.account.protocolConfig.fetch(protocolConfigAddress),
         getAccount(connection, vault.vaultUsdcAta),
       ]);
 
-      const list: Proposal[] = accts.map((a: any) => ({
-        pda: a.publicKey as PublicKey,
-        proposalId: a.account.proposalId as BN,
-        recipient: a.account.recipient as PublicKey,
-        recipientAta: a.account.recipientAta as PublicKey,
-        amount: a.account.amount as BN,
-        proposedAt: a.account.proposedAt as BN,
-        executed: a.account.executed as boolean,
-        cancelled: a.account.cancelled as boolean,
-        memo: a.account.memo as string,
+      const list: Proposal[] = accts.map((a) => ({
+        pda: a.publicKey,
+        proposalId: a.account.proposalId,
+        recipient: a.account.recipient,
+        recipientAta: a.account.recipientAta,
+        amount: a.account.amount,
+        proposedAt: a.account.proposedAt,
+        executed: a.account.executed,
+        cancelled: a.account.cancelled,
+        memo: a.account.memo,
       }));
       list.sort((a, b) => b.proposalId.cmp(a.proposalId));
 
       setProposals(list);
       setProtocolConfig({
         feeBps: Number(cfg.feeBps),
-        stakerRewardAta: cfg.stakerRewardAta as PublicKey,
-        treasuryAta: cfg.treasuryAta as PublicKey,
+        stakerRewardAta: cfg.stakerRewardAta,
+        treasuryAta: cfg.treasuryAta,
       });
       setVaultBalance(vaultTokenAccount.amount);
-    } catch (e: any) {
-      setError(normalizeError(e));
+    } catch (error) {
+      setError(normalizeError(error));
     }
   }, [connection, program, vault.address, vault.vaultUsdcAta]);
 
@@ -339,7 +339,7 @@ export function ProposalsPanel({
       }
 
       const protocolConfigAddress = protocolConfigPda();
-      const signature = await (program.methods as any)
+      const signature = await program.methods
         .approveProposal()
         .accounts({
           human: wallet!.publicKey,
@@ -367,8 +367,8 @@ export function ProposalsPanel({
       });
       await refresh();
       onChange();
-    } catch (e: any) {
-      setError(normalizeError(e));
+    } catch (error) {
+      setError(normalizeError(error));
     } finally {
       setBusy(null);
     }
@@ -381,7 +381,7 @@ export function ProposalsPanel({
     setError(null);
     setLastTransaction(null);
     try {
-      const signature = await (program.methods as any)
+      const signature = await program.methods
         .cancelProposal()
         .accounts({
           human: wallet!.publicKey,
@@ -401,8 +401,8 @@ export function ProposalsPanel({
       });
       await refresh();
       onChange();
-    } catch (e: any) {
-      setError(normalizeError(e));
+    } catch (error) {
+      setError(normalizeError(error));
     } finally {
       setBusy(null);
     }

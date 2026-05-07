@@ -31,18 +31,18 @@ export function WhitelistPanel({ vault }: { vault: VaultData }) {
     if (!program) return;
     setError(null);
     try {
-      const accts = await (program.account as any).whitelistEntry.all([
+      const accts = await program.account.whitelistEntry.all([
         { memcmp: { offset: 8, bytes: vault.address.toBase58() } },
       ]);
-      const list: Entry[] = accts.map((a: any) => ({
-        pda: a.publicKey as PublicKey,
-        address: a.account.address as PublicKey,
+      const list: Entry[] = accts.map((a) => ({
+        pda: a.publicKey,
+        address: a.account.address,
         addedAt: Number(a.account.addedAt.toString()),
       }));
       list.sort((a, b) => b.addedAt - a.addedAt);
       setEntries(list);
-    } catch (e: any) {
-      setError(e.message ?? String(e));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
     }
   }, [program, vault.address]);
 
@@ -58,7 +58,7 @@ export function WhitelistPanel({ vault }: { vault: VaultData }) {
     try {
       const address = new PublicKey(newAddress.trim());
       const pda = whitelistPda(vault.address, address);
-      await (program.methods as any)
+      await program.methods
         .addWhitelist(address)
         .accounts({
           human: wallet.publicKey,
@@ -69,8 +69,8 @@ export function WhitelistPanel({ vault }: { vault: VaultData }) {
         .rpc();
       setNewAddress("");
       await refresh();
-    } catch (e: any) {
-      setError(e.message ?? String(e));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(null);
     }
@@ -81,7 +81,7 @@ export function WhitelistPanel({ vault }: { vault: VaultData }) {
     setError(null);
     setBusy(entry.pda.toBase58());
     try {
-      await (program.methods as any)
+      await program.methods
         .removeWhitelist()
         .accounts({
           human: wallet.publicKey,
@@ -90,8 +90,8 @@ export function WhitelistPanel({ vault }: { vault: VaultData }) {
         })
         .rpc();
       await refresh();
-    } catch (e: any) {
-      setError(e.message ?? String(e));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(null);
     }

@@ -74,12 +74,12 @@ export function VaultDetail({
     if (!wallet) return;
     try {
       const program = getProgram(connection, wallet);
-      const accounts = await (program.account as any).proposal.all([
+      const accounts = await program.account.proposal.all([
         { memcmp: { offset: 8, bytes: vault.address.toBase58() } },
       ]);
       setPendingProposalCount(
         accounts.filter(
-          (account: any) => !account.account.executed && !account.account.cancelled
+          (account) => !account.account.executed && !account.account.cancelled
         ).length
       );
     } catch {

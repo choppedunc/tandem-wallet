@@ -117,7 +117,7 @@ export function CreateVaultForm({
         );
       }
 
-      await (program.methods as any)
+      await program.methods
         .initialize(usdcToRaw(limitNum))
         .accounts({
           human: wallet.publicKey,
@@ -133,8 +133,8 @@ export function CreateVaultForm({
         .rpc();
 
       onCreated(vault, vaultName.trim() || fallbackVaultName(vault));
-    } catch (e: any) {
-      setError(normalizeCreateVaultError(e));
+    } catch (error) {
+      setError(normalizeCreateVaultError(error));
     } finally {
       setSubmitting(false);
     }

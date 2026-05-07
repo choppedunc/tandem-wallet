@@ -161,7 +161,7 @@ function WithdrawPanel({
     const program = getProgram(connection, wallet);
     const protocolConfig = protocolConfigPda();
 
-    (program.account as any).protocolConfig
+    program.account.protocolConfig
       .fetch(protocolConfig)
       .then((config: { feeBps: number }) => {
         if (!cancelled) setFeeBps(Number(config.feeBps));
@@ -205,7 +205,7 @@ function WithdrawPanel({
       );
       const program = getProgram(connection, wallet);
       const protocolConfig = protocolConfigPda();
-      const config = await (program.account as any).protocolConfig.fetch(protocolConfig);
+      const config = await program.account.protocolConfig.fetch(protocolConfig);
       const feeRaw = (amountRawBigInt * BigInt(Number(config.feeBps))) / BigInt(10_000);
 
       if (usdcBalance !== null && amountRawBigInt + feeRaw > usdcBalance) {
@@ -240,7 +240,7 @@ function WithdrawPanel({
         );
       }
 
-      const signature = await (program.methods as any)
+      const signature = await program.methods
         .sendUsdc(amountRaw)
         .accounts({
           signer: wallet.publicKey,

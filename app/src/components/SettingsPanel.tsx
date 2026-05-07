@@ -29,13 +29,13 @@ export function SettingsPanel({
       if (isNaN(limitNum) || limitNum < 0)
         throw new Error("Limit must be ≥ 0.");
       const program = getProgram(connection, wallet);
-      await (program.methods as any)
+      await program.methods
         .setLimit(usdcToRaw(limitNum))
         .accounts({ human: wallet.publicKey, vault: vault.address })
         .rpc();
       onChange();
-    } catch (e: any) {
-      setError(e.message ?? String(e));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(null);
     }
@@ -48,13 +48,13 @@ export function SettingsPanel({
     try {
       const program = getProgram(connection, wallet);
       const method = vault.paused ? "unpause" : "pause";
-      await (program.methods as any)
+      await program.methods
         [method]()
         .accounts({ human: wallet.publicKey, vault: vault.address })
         .rpc();
       onChange();
-    } catch (e: any) {
-      setError(e.message ?? String(e));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(null);
     }

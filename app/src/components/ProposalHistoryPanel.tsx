@@ -449,19 +449,19 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
     setScanWarning(null);
 
     try {
-      const accounts = await (program.account as any).proposal.all([
+      const accounts = await program.account.proposal.all([
         { memcmp: { offset: 8, bytes: vault.address.toBase58() } },
       ]);
-      const mapped: ProposalHistoryItem[] = accounts.map((account: any) => ({
-        pda: account.publicKey as PublicKey,
-        proposalId: account.account.proposalId as BN,
-        recipient: account.account.recipient as PublicKey,
-        recipientAta: account.account.recipientAta as PublicKey,
-        amount: account.account.amount as BN,
-        proposedAt: account.account.proposedAt as BN,
-        executed: account.account.executed as boolean,
-        cancelled: account.account.cancelled as boolean,
-        memo: account.account.memo as string,
+      const mapped: ProposalHistoryItem[] = accounts.map((account) => ({
+        pda: account.publicKey,
+        proposalId: account.account.proposalId,
+        recipient: account.account.recipient,
+        recipientAta: account.account.recipientAta,
+        amount: account.account.amount,
+        proposedAt: account.account.proposedAt,
+        executed: account.account.executed,
+        cancelled: account.account.cancelled,
+        memo: account.account.memo,
       }));
       const proposalRows: HistoryRow[] = mapped
         .map((proposal) => {
@@ -520,8 +520,8 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
           ? "Some recent direct transactions could not be checked because devnet RPC is rate-limiting transaction lookups."
           : null
       );
-    } catch (e: any) {
-      setError(e.message ?? String(e));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
     }
   }, [loadVaultEvents, program, vault.address]);
 
