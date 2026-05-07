@@ -133,6 +133,10 @@ export function CreateVaultForm({
         .rpc();
 
       onCreated(vault, vaultName.trim() || fallbackVaultName(vault));
+      setGeneratedSecret(null);
+      setGeneratedPubkey(null);
+      setAgentPubkeyInput("");
+      setVaultName("");
     } catch (error) {
       setError(normalizeCreateVaultError(error));
     } finally {
@@ -240,8 +244,8 @@ export function CreateVaultForm({
                       {generatedSecret}
                     </code>
                     <p className="text-xs mt-2 text-muted">
-                      Shown once. The agent uses it to sign sends. Store it
-                      where your agent can read it.
+                      Shown once and cleared after vault creation. Tandem does
+                      not store this key. Store it where your agent can read it.
                     </p>
                   </div>
                 </div>

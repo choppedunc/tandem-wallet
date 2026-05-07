@@ -43,6 +43,11 @@ type LastTransaction = {
   setupSignature?: string;
 };
 
+type ReviewAction = {
+  type: "approve" | "cancel";
+  proposalKey: string;
+};
+
 const LIVE_REFRESH_INTERVAL_MS = 15_000;
 
 function statusOf(proposal: Proposal): "pending" | "executed" | "cancelled" {
@@ -179,6 +184,7 @@ export function ProposalsPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastTransaction, setLastTransaction] = useState<LastTransaction | null>(null);
+  const [reviewAction, setReviewAction] = useState<ReviewAction | null>(null);
 
   const program = useMemo(
     () => (wallet ? getProgram(connection, wallet) : null),
@@ -271,6 +277,10 @@ export function ProposalsPanel({
     visible[0] ??
     null;
 
+  useEffect(() => {
+    setReviewAction(null);
+  }, [selectedProposalKey]);
+
   const selectedRecipientAtaKey = selectedProposal?.recipientAta.toBase58() ?? null;
 
   useEffect(() => {
@@ -298,6 +308,7 @@ export function ProposalsPanel({
   async function approve(proposal: Proposal) {
     if (!program || !protocolConfig) return;
     const proposalKey = proposal.pda.toBase58();
+    setReviewAction(null);
     setBusy(`approve:${proposalKey}`);
     setError(null);
     setLastTransaction(null);
@@ -377,6 +388,7 @@ export function ProposalsPanel({
   async function cancel(proposal: Proposal) {
     if (!program) return;
     const proposalKey = proposal.pda.toBase58();
+    setReviewAction(null);
     setBusy(`cancel:${proposalKey}`);
     setError(null);
     setLastTransaction(null);
@@ -647,7 +659,12 @@ export function ProposalsPanel({
                   )}
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <button
-                      onClick={() => approve(selectedProposal)}
+                      onClick={() =>
+                        setReviewAction({
+                          type: "approve",
+                          proposalKey: selectedProposal.pda.toBase58(),
+                        })
+                      }
                       disabled={
                         Boolean(approveBlockedReason) ||
                         busy === `approve:${selectedProposal.pda.toBase58()}`
@@ -659,7 +676,12 @@ export function ProposalsPanel({
                         : "Approve"}
                     </button>
                     <button
-                      onClick={() => cancel(selectedProposal)}
+                      onClick={() =>
+                        setReviewAction({
+                          type: "cancel",
+                          proposalKey: selectedProposal.pda.toBase58(),
+                        })
+                      }
                       disabled={busy === `cancel:${selectedProposal.pda.toBase58()}`}
                       className="border border-line-soft px-5 py-3 text-xs font-display font-bold uppercase tracking-[0.14em] text-text hover:border-line disabled:opacity-50"
                     >
@@ -674,6 +696,126 @@ export function ProposalsPanel({
           )}
         </div>
       )}
+
+      {reviewAction &&
+        selectedProposal &&
+        selectedProposal.pda.toBase58() === reviewAction.proposalKey && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+            <div className="brackets max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+              <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-accent-2">
+                Final signing review
+              </p>
+              <h2 className="font-display text-2xl font-bold text-text">
+                {reviewAction.type === "approve"
+                  ? "Approve this transaction"
+                  : "Reject this request"}
+              </h2>
+              <p className="mt-2 text-sm text-muted">
+                {reviewAction.type === "approve"
+                  ? "Your wallet signature will execute this proposal and move USDC from the vault."
+                  : "Your wallet signature will cancel this proposal. No USDC will move."}
+              </p>
+
+              <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <Metric label="Recipient gets" value={formatUsdc(selectedProposal.amount)} />
+                <Metric
+                  label="Protocol fee"
+                  value={selectedFee === null ? "..." : formatUsdc(selectedFee)}
+                  muted={selectedFee === BigInt(0)}
+                />
+                <Metric
+                  label="Vault debit"
+                  value={
+                    reviewAction.type === "approve" && totalDebit !== null
+                      ? formatUsdc(totalDebit)
+                      : "0.00 USDC"
+                  }
+                  muted={reviewAction.type === "cancel"}
+                />
+                <Metric
+                  label="After signature"
+                  value={
+                    reviewAction.type === "approve" && projectedBalance !== null
+                      ? formatUsdc(projectedBalance)
+                      : vaultBalance === null
+                        ? "..."
+                        : formatUsdc(vaultBalance)
+                  }
+                  muted={hasInsufficientFunds}
+                />
+              </div>
+
+              <div className="mt-5 border-y border-line-soft">
+                <DetailRow label="Network" value={NETWORK} />
+                <DetailRow
+                  label="Proposal"
+                  value={`#${selectedProposal.proposalId.toString()} / ${selectedProposal.pda.toBase58()}`}
+                />
+                <DetailRow label="Vault" value={vault.address.toBase58()} />
+                <DetailRow label="Human signer" value={wallet?.publicKey.toBase58() ?? ""} />
+                <DetailRow label="Agent" value={vault.agent.toBase58()} />
+                <DetailRow
+                  label="Recipient wallet"
+                  value={selectedProposal.recipient.toBase58()}
+                />
+                <DetailRow
+                  label="Recipient USDC"
+                  value={selectedProposal.recipientAta.toBase58()}
+                />
+                {reviewAction.type === "approve" && protocolConfig && (
+                  <>
+                    <DetailRow
+                      label="Treasury USDC"
+                      value={protocolConfig.treasuryAta.toBase58()}
+                    />
+                    <DetailRow
+                      label="Staker rewards USDC"
+                      value={protocolConfig.stakerRewardAta.toBase58()}
+                    />
+                  </>
+                )}
+                <DetailRow
+                  label="Memo"
+                  value={selectedProposal.memo || "No memo supplied"}
+                />
+              </div>
+
+              {reviewAction.type === "approve" && approveBlockedReason && (
+                <div className="mt-4 border border-line-soft bg-[rgba(10,186,181,0.04)] p-3 text-sm text-muted">
+                  {approveBlockedReason}
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setReviewAction(null)}
+                  className="border border-line-soft px-4 py-2 text-sm font-display uppercase tracking-[0.14em] text-muted hover:text-text"
+                >
+                  Review later
+                </button>
+                {reviewAction.type === "approve" ? (
+                  <button
+                    type="button"
+                    onClick={() => approve(selectedProposal)}
+                    disabled={Boolean(approveBlockedReason)}
+                    className="brackets-accent px-4 py-2 text-sm font-bold uppercase tracking-[0.14em] text-[#032b2a] disabled:opacity-50"
+                  >
+                    Sign approval
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => cancel(selectedProposal)}
+                    className="border border-line-soft px-4 py-2 text-sm font-display font-bold uppercase tracking-[0.14em] text-text hover:border-line"
+                  >
+                    Sign rejection
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

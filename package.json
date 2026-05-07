@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "check:secrets": "node scripts/check-secrets.cjs",
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
   },
