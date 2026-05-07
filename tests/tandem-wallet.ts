@@ -261,6 +261,32 @@ describe("tandem-wallet", () => {
 
   let proposal1Pda: PublicKey;
 
+  it("Rejects a proposal whose recipient token account does not match the displayed recipient", async () => {
+    const proposalId = new BN(0);
+    const [badProposalPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("proposal"), vault.toBuffer(), proposalId.toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
+
+    try {
+      await program.methods
+        .propose(new BN(150_000_000), "Mismatched recipient token account")
+        .accounts({
+          agent: agent.publicKey,
+          vault,
+          recipient: recipient.publicKey,
+          recipientAta: treasuryAta,
+          proposal: badProposalPda,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([agent])
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidRecipientAta");
+    }
+  });
+
   it("Agent proposes 150 USDC", async () => {
     const proposalId = new BN(0);
     [proposal1Pda] = PublicKey.findProgramAddressSync(

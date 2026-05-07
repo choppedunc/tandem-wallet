@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::associated_token::get_associated_token_address;
 use crate::state::*;
 use crate::errors::*;
 use crate::events::*;
@@ -20,7 +21,13 @@ pub struct Propose<'info> {
     /// CHECK: Recipient wallet address
     pub recipient: UncheckedAccount<'info>,
 
-    /// CHECK: Recipient's USDC ATA - validated by client
+    /// CHECK: The account may not exist yet, but its address must be the
+    /// recipient's associated token account for this vault's USDC mint.
+    #[account(
+        constraint = recipient_ata.key()
+            == get_associated_token_address(&recipient.key(), &vault.usdc_mint)
+            @ VaultError::InvalidRecipientAta,
+    )]
     pub recipient_ata: UncheckedAccount<'info>,
 
     #[account(

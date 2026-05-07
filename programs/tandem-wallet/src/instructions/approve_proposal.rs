@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 use crate::state::*;
 use crate::errors::*;
@@ -40,6 +41,11 @@ pub struct ApproveProposal<'info> {
     #[account(
         mut,
         constraint = recipient_ata.key() == proposal.recipient_ata,
+        constraint = recipient_ata.key()
+            == get_associated_token_address(&proposal.recipient, &vault.usdc_mint)
+            @ VaultError::InvalidRecipientAta,
+        constraint = recipient_ata.owner == proposal.recipient @ VaultError::InvalidRecipientAta,
+        constraint = recipient_ata.mint == vault.usdc_mint @ VaultError::InvalidRecipientAta,
     )]
     pub recipient_ata: Account<'info, TokenAccount>,
 

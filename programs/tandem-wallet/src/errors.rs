@@ -34,4 +34,6 @@ pub enum VaultError {
     OnlyAuthority,
     #[msg("Fee basis points must be <= 10000")]
     InvalidFeeBps,
+    #[msg("Recipient token account must be the recipient's associated USDC token account")]
+    InvalidRecipientAta,
 }

@@ -994,6 +994,11 @@
       "code": 6015,
       "name": "InvalidFeeBps",
       "msg": "Fee basis points must be <= 10000"
+    },
+    {
+      "code": 6016,
+      "name": "InvalidRecipientAta",
+      "msg": "Recipient token account must be the recipient's associated USDC token account"
     }
   ],
   "types": [
