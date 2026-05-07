@@ -34,6 +34,9 @@ async function main() {
     process.env.NEXT_PUBLIC_USDC_MINT || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
   );
   const feeBps = Number(process.env.PROTOCOL_FEE_BPS || "25");
+  if (!Number.isInteger(feeBps) || feeBps < 0 || feeBps > 10_000) {
+    throw new Error("PROTOCOL_FEE_BPS must be an integer between 0 and 10000");
+  }
   const authorityKeypair = readKeypair(process.env.ANCHOR_WALLET || "~/.config/solana/id.json");
   const treasuryOwner = new PublicKey(
     process.env.TREASURY_OWNER ||

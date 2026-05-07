@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount, Mint};
 use anchor_spl::associated_token::AssociatedToken;
 use crate::state::*;
+use crate::errors::*;
 use crate::events::*;
 
 #[derive(Accounts)]
@@ -52,6 +53,8 @@ pub struct InitializeProtocol<'info> {
 }
 
 pub fn handler(ctx: Context<InitializeProtocol>, fee_bps: u16) -> Result<()> {
+    require!(fee_bps <= 10_000, VaultError::InvalidFeeBps);
+
     let config = &mut ctx.accounts.protocol_config;
     config.authority = ctx.accounts.authority.key();
     config.fee_bps = fee_bps;

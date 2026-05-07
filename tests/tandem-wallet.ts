@@ -143,6 +143,30 @@ describe("tandem-wallet", () => {
     expect(vaultAccount.proposalCount.toNumber()).to.equal(0);
   });
 
+  it("Rejects invalid protocol fee on initialization", async () => {
+    try {
+      await program.methods
+        .initializeProtocol(10_001)
+        .accounts({
+          authority: human,
+          protocolConfig,
+          usdcMint,
+          tandemMint,
+          stakerRewardAta,
+          treasuryAta,
+          stakeTandemAta,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidFeeBps");
+    }
+  });
+
   it("Initializes the protocol config", async () => {
     await program.methods
       .initializeProtocol(FEE_BPS)
