@@ -35,6 +35,8 @@ pub struct ApproveProposal<'info> {
     #[account(
         mut,
         constraint = vault_usdc_ata.key() == vault.vault_usdc_ata,
+        constraint = vault_usdc_ata.owner == vault.key() @ VaultError::InvalidVaultAta,
+        constraint = vault_usdc_ata.mint == vault.usdc_mint @ VaultError::InvalidVaultAta,
     )]
     pub vault_usdc_ata: Account<'info, TokenAccount>,
 

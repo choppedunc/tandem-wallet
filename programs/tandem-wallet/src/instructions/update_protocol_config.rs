@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::TokenAccount;
 use crate::state::*;
 use crate::errors::*;
@@ -17,7 +18,10 @@ pub struct UpdateProtocolConfig<'info> {
 
     /// New treasury ATA (optional — pass same as current if not changing)
     #[account(
-        constraint = treasury_ata.mint == protocol_config.usdc_mint,
+        constraint = treasury_ata.mint == protocol_config.usdc_mint @ VaultError::InvalidTreasuryAta,
+        constraint = treasury_ata.key()
+            == get_associated_token_address(&treasury_ata.owner, &protocol_config.usdc_mint)
+            @ VaultError::InvalidTreasuryAta,
     )]
     pub treasury_ata: Account<'info, TokenAccount>,
 }

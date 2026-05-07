@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 use crate::state::*;
 use crate::errors::*;
@@ -18,10 +19,18 @@ pub struct SendUsdc<'info> {
     #[account(
         mut,
         constraint = vault_usdc_ata.key() == vault.vault_usdc_ata,
+        constraint = vault_usdc_ata.owner == vault.key() @ VaultError::InvalidVaultAta,
+        constraint = vault_usdc_ata.mint == vault.usdc_mint @ VaultError::InvalidVaultAta,
     )]
     pub vault_usdc_ata: Account<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = recipient_ata.key()
+            == get_associated_token_address(&recipient_ata.owner, &vault.usdc_mint)
+            @ VaultError::InvalidRecipientAta,
+        constraint = recipient_ata.mint == vault.usdc_mint @ VaultError::InvalidRecipientAta,
+    )]
     pub recipient_ata: Account<'info, TokenAccount>,
 
     /// Optional whitelist entry PDA. If provided and valid, bypasses tier checks.

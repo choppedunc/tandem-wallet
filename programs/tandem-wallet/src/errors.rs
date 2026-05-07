@@ -36,4 +36,8 @@ pub enum VaultError {
     InvalidFeeBps,
     #[msg("Recipient token account must be the recipient's associated USDC token account")]
     InvalidRecipientAta,
+    #[msg("Treasury token account must be the treasury wallet's associated USDC token account")]
+    InvalidTreasuryAta,
+    #[msg("Vault token account must be the vault's associated USDC token account")]
+    InvalidVaultAta,
 }

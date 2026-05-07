@@ -1006,6 +1006,16 @@
       "code": 6016,
       "name": "InvalidRecipientAta",
       "msg": "Recipient token account must be the recipient's associated USDC token account"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidTreasuryAta",
+      "msg": "Treasury token account must be the treasury wallet's associated USDC token account"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidVaultAta",
+      "msg": "Vault token account must be the vault's associated USDC token account"
     }
   ],
   "types": [

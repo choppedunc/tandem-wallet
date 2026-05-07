@@ -3,6 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import {
   createMint,
   mintTo,
+  createAccount,
   getAccount,
   getOrCreateAssociatedTokenAccount,
   TOKEN_PROGRAM_ID,
@@ -47,12 +48,14 @@ describe("tandem-wallet", () => {
   let vaultBump: number;
   let vaultUsdcAta: PublicKey;
   let recipientAta: PublicKey;
+  let recipientTokenAccount: PublicKey;
 
   // Protocol accounts
   let protocolConfig: PublicKey;
   let stakerRewardAta: PublicKey;
   let treasuryWallet: Keypair;
   let treasuryAta: PublicKey;
+  let treasuryTokenAccount: PublicKey;
   let stakeTandemAta: PublicKey;
   let programData: PublicKey;
 
@@ -100,6 +103,13 @@ describe("tandem-wallet", () => {
       provider.connection, mintAuthority, usdcMint, recipient.publicKey
     );
     recipientAta = recipientAtaAccount.address;
+    recipientTokenAccount = await createAccount(
+      provider.connection,
+      mintAuthority,
+      usdcMint,
+      recipient.publicKey,
+      Keypair.generate()
+    );
 
     // Derive protocol config PDA
     [protocolConfig] = PublicKey.findProgramAddressSync(
@@ -120,6 +130,13 @@ describe("tandem-wallet", () => {
       provider.connection, mintAuthority, usdcMint, treasuryWallet.publicKey
     );
     treasuryAta = treasuryAtaAccount.address;
+    treasuryTokenAccount = await createAccount(
+      provider.connection,
+      mintAuthority,
+      usdcMint,
+      treasuryWallet.publicKey,
+      Keypair.generate()
+    );
   });
 
   // Helper: common fee accounts for send_usdc
@@ -208,6 +225,32 @@ describe("tandem-wallet", () => {
     }
   });
 
+  it("Rejects protocol initialization with a non-ATA treasury token account", async () => {
+    try {
+      await program.methods
+        .initializeProtocol(FEE_BPS)
+        .accounts({
+          authority: human,
+          protocolConfig,
+          usdcMint,
+          tandemMint,
+          stakerRewardAta,
+          treasuryAta: treasuryTokenAccount,
+          stakeTandemAta,
+          program: program.programId,
+          programData,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidTreasuryAta");
+    }
+  });
+
   it("Initializes the protocol config", async () => {
     await program.methods
       .initializeProtocol(FEE_BPS)
@@ -243,6 +286,27 @@ describe("tandem-wallet", () => {
 
     const balance = await getAccount(provider.connection, vaultUsdcAta);
     expect(Number(balance.amount)).to.equal(INITIAL_VAULT_BALANCE);
+  });
+
+  it("Rejects direct sends to non-ATA USDC token accounts", async () => {
+    try {
+      await program.methods
+        .sendUsdc(new BN(1_000_000))
+        .accounts({
+          signer: agent.publicKey,
+          vault,
+          vaultUsdcAta,
+          recipientAta: recipientTokenAccount,
+          whitelistEntry: null,
+          ...feeAccounts(),
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([agent])
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidRecipientAta");
+    }
   });
 
   // --- Tier routing tests (now with fee accounts) ---
@@ -895,6 +959,22 @@ describe("tandem-wallet", () => {
       expect.fail("Should have thrown");
     } catch (e: any) {
       expect(e.error.errorCode.code).to.equal("NoRewardsToClaim");
+    }
+  });
+
+  it("Rejects protocol config treasury updates to non-ATA token accounts", async () => {
+    try {
+      await program.methods
+        .updateProtocolConfig(50)
+        .accounts({
+          authority: human,
+          protocolConfig,
+          treasuryAta: treasuryTokenAccount,
+        })
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidTreasuryAta");
     }
   });
 
