@@ -452,6 +452,13 @@
           "writable": true
         },
         {
+          "name": "program",
+          "address": "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ"
+        },
+        {
+          "name": "program_data"
+        },
+        {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
         },

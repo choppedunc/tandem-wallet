@@ -19,6 +19,9 @@ const path = require("path");
 
 const repoRoot = path.resolve(__dirname, "../..");
 const idl = require("../src/lib/idl.json");
+const BPF_LOADER_UPGRADEABLE_PROGRAM_ID = new PublicKey(
+  "BPFLoaderUpgradeab1e11111111111111111111111"
+);
 
 function readKeypair(filePath) {
   const expanded = filePath.replace(/^~/, os.homedir());
@@ -54,6 +57,10 @@ async function main() {
   const [protocolConfig] = PublicKey.findProgramAddressSync(
     [Buffer.from("protocol_config")],
     programId
+  );
+  const [programData] = PublicKey.findProgramAddressSync(
+    [programId.toBuffer()],
+    BPF_LOADER_UPGRADEABLE_PROGRAM_ID
   );
 
   const existing = await connection.getAccountInfo(protocolConfig);
@@ -99,6 +106,8 @@ async function main() {
       stakerRewardAta,
       treasuryAta: treasuryAta.address,
       stakeTandemAta,
+      program: programId,
+      programData,
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,

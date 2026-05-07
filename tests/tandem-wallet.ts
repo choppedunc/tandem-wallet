@@ -25,6 +25,9 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const idl = JSON.parse(fs.readFileSync(path.join(__dirname, "../target/idl/tandem_wallet.json"), "utf-8"));
+const BPF_LOADER_UPGRADEABLE_PROGRAM_ID = new PublicKey(
+  "BPFLoaderUpgradeab1e11111111111111111111111"
+);
 
 describe("tandem-wallet", () => {
   const provider = anchor.AnchorProvider.env();
@@ -39,6 +42,7 @@ describe("tandem-wallet", () => {
   let human: PublicKey;
   let agent: Keypair;
   let recipient: Keypair;
+  let attacker: Keypair;
   let vault: PublicKey;
   let vaultBump: number;
   let vaultUsdcAta: PublicKey;
@@ -50,6 +54,7 @@ describe("tandem-wallet", () => {
   let treasuryWallet: Keypair;
   let treasuryAta: PublicKey;
   let stakeTandemAta: PublicKey;
+  let programData: PublicKey;
 
   const SPENDING_LIMIT = new BN(50_000_000); // 50 USDC
   const INITIAL_VAULT_BALANCE = 1_000_000_000; // 1000 USDC
@@ -59,6 +64,7 @@ describe("tandem-wallet", () => {
     mintAuthority = Keypair.generate();
     agent = Keypair.generate();
     recipient = Keypair.generate();
+    attacker = Keypair.generate();
     treasuryWallet = Keypair.generate();
     human = provider.wallet.publicKey;
 
@@ -67,10 +73,12 @@ describe("tandem-wallet", () => {
     const sig2 = await provider.connection.requestAirdrop(agent.publicKey, 10e9);
     const sig3 = await provider.connection.requestAirdrop(recipient.publicKey, 10e9);
     const sig4 = await provider.connection.requestAirdrop(treasuryWallet.publicKey, 10e9);
+    const sig5 = await provider.connection.requestAirdrop(attacker.publicKey, 10e9);
     await provider.connection.confirmTransaction(sig1);
     await provider.connection.confirmTransaction(sig2);
     await provider.connection.confirmTransaction(sig3);
     await provider.connection.confirmTransaction(sig4);
+    await provider.connection.confirmTransaction(sig5);
 
     // Create USDC mock mint (6 decimals)
     usdcMint = await createMint(provider.connection, mintAuthority, mintAuthority.publicKey, null, 6);
@@ -97,6 +105,10 @@ describe("tandem-wallet", () => {
     [protocolConfig] = PublicKey.findProgramAddressSync(
       [Buffer.from("protocol_config")],
       program.programId
+    );
+    [programData] = PublicKey.findProgramAddressSync(
+      [program.programId.toBuffer()],
+      BPF_LOADER_UPGRADEABLE_PROGRAM_ID
     );
 
     // Derive protocol ATAs
@@ -155,6 +167,8 @@ describe("tandem-wallet", () => {
           stakerRewardAta,
           treasuryAta,
           stakeTandemAta,
+          program: program.programId,
+          programData,
           systemProgram: SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -164,6 +178,33 @@ describe("tandem-wallet", () => {
       expect.fail("Should have thrown");
     } catch (e: any) {
       expect(e.error.errorCode.code).to.equal("InvalidFeeBps");
+    }
+  });
+
+  it("Rejects protocol initialization by non-upgrade authority", async () => {
+    try {
+      await program.methods
+        .initializeProtocol(FEE_BPS)
+        .accounts({
+          authority: attacker.publicKey,
+          protocolConfig,
+          usdcMint,
+          tandemMint,
+          stakerRewardAta,
+          treasuryAta,
+          stakeTandemAta,
+          program: program.programId,
+          programData,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .signers([attacker])
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("OnlyAuthority");
     }
   });
 
@@ -178,6 +219,8 @@ describe("tandem-wallet", () => {
         stakerRewardAta,
         treasuryAta,
         stakeTandemAta,
+        program: program.programId,
+        programData,
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,

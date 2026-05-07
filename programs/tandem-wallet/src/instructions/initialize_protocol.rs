@@ -46,6 +46,16 @@ pub struct InitializeProtocol<'info> {
     )]
     pub stake_tandem_ata: Box<Account<'info, TokenAccount>>,
 
+    #[account(
+        constraint = program.programdata_address()? == Some(program_data.key()) @ VaultError::OnlyAuthority,
+    )]
+    pub program: Program<'info, crate::program::TandemWallet>,
+
+    #[account(
+        constraint = program_data.upgrade_authority_address == Some(authority.key()) @ VaultError::OnlyAuthority,
+    )]
+    pub program_data: Account<'info, ProgramData>,
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
