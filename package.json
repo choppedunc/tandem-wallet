@@ -1,8 +1,10 @@
 {
   "scripts": {
     "check:secrets": "node scripts/check-secrets.cjs",
-    "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
-    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
+    "lint": "npm run check:secrets && npm run lint --prefix app",
+    "build": "npm run build --prefix app",
+    "smoke:devnet": "npm run smoke:devnet --prefix app",
+    "check-admin:devnet": "npm run check-admin:devnet --prefix app"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1"
