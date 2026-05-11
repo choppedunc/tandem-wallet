@@ -1,8 +1,8 @@
-use anchor_lang::prelude::*;
-use anchor_spl::associated_token::get_associated_token_address;
-use crate::state::*;
 use crate::errors::*;
 use crate::events::*;
+use crate::state::*;
+use anchor_lang::prelude::*;
+use anchor_spl::associated_token::get_associated_token_address;
 
 #[derive(Accounts)]
 pub struct Propose<'info> {
@@ -19,11 +19,24 @@ pub struct Propose<'info> {
     pub vault: Account<'info, Vault>,
 
     /// CHECK: Recipient wallet address
+    #[account(
+        constraint = recipient.key() != vault.key() @ VaultError::InvalidRecipientAta,
+    )]
     pub recipient: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [ProtocolConfig::SEED_PREFIX],
+        bump = protocol_config.bump,
+        constraint = protocol_config.usdc_mint == vault.usdc_mint @ VaultError::InvalidUsdcMint,
+    )]
+    pub protocol_config: Account<'info, ProtocolConfig>,
 
     /// CHECK: The account may not exist yet, but its address must be the
     /// recipient's associated token account for this vault's USDC mint.
     #[account(
+        constraint = recipient_ata.key() != vault.vault_usdc_ata @ VaultError::InvalidRecipientAta,
+        constraint = recipient_ata.key() != protocol_config.staker_reward_ata @ VaultError::InvalidRecipientAta,
+        constraint = recipient_ata.key() != protocol_config.treasury_ata @ VaultError::InvalidRecipientAta,
         constraint = recipient_ata.key()
             == get_associated_token_address(&recipient.key(), &vault.usdc_mint)
             @ VaultError::InvalidRecipientAta,
@@ -52,7 +65,10 @@ pub fn handler(ctx: Context<Propose>, amount: u64, memo: String) -> Result<()> {
 
     let vault = &mut ctx.accounts.vault;
     let proposal_id = vault.proposal_count;
-    vault.proposal_count = vault.proposal_count.checked_add(1).ok_or(VaultError::Overflow)?;
+    vault.proposal_count = vault
+        .proposal_count
+        .checked_add(1)
+        .ok_or(VaultError::Overflow)?;
 
     let proposal = &mut ctx.accounts.proposal;
     proposal.vault = vault.key();

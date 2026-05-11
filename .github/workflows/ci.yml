@@ -38,15 +38,54 @@ jobs:
   program:
     name: Program checks
     runs-on: ubuntu-latest
+    env:
+      SOLANA_VERSION: v2.1.21
+      ANCHOR_VERSION: v0.30.1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.85.0
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/${SOLANA_VERSION}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      - name: Install Anchor CLI
+        run: cargo install --git https://github.com/coral-xyz/anchor --tag "${ANCHOR_VERSION}" anchor-cli --locked
+
+      - name: Create CI wallet
+        run: |
+          mkdir -p "$HOME/.config/solana"
+          solana-keygen new --no-bip39-passphrase --silent --outfile "$HOME/.config/solana/id.json"
+
+      - name: Print tool versions
+        run: |
+          rustc --version
+          cargo --version
+          solana --version
+          anchor --version
+
       - name: Test Rust workspace
         run: cargo test --workspace
+
+      - name: Build SBF program
+        run: cargo build-sbf --manifest-path programs/tandem-wallet/Cargo.toml --sbf-out-dir target/deploy
+
+      - name: Test Anchor program
+        run: anchor test --skip-build --provider.cluster localnet

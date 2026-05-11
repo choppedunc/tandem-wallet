@@ -36,6 +36,8 @@ export type ProposalAccount = {
 export type ProtocolConfigAccount = {
   authority: PublicKey;
   feeBps: number;
+  usdcMint: PublicKey;
+  tandemMint: PublicKey;
   stakerRewardAta: PublicKey;
   treasuryAta: PublicKey;
 };

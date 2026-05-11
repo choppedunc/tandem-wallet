@@ -1,6 +1,6 @@
-use anchor_lang::prelude::*;
-use crate::state::*;
 use crate::errors::*;
+use crate::state::*;
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct CloseProposal<'info> {
@@ -23,7 +23,7 @@ pub struct CloseProposal<'info> {
         ],
         bump = proposal.bump,
         constraint = proposal.vault == vault.key(),
-        constraint = proposal.executed || proposal.cancelled @ VaultError::ProposalAlreadyExecuted,
+        constraint = proposal.executed || proposal.cancelled @ VaultError::ProposalStillPending,
         close = agent,
     )]
     pub proposal: Account<'info, Proposal>,

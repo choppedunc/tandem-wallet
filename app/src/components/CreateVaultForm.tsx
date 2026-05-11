@@ -16,7 +16,7 @@ import {
 } from "@solana/spl-token";
 import bs58 from "bs58";
 import { getProgram } from "@/lib/program";
-import { vaultPda } from "@/lib/pdas";
+import { protocolConfigPda, vaultPda } from "@/lib/pdas";
 import { NETWORK, USDC_MINT } from "@/lib/network";
 import { formatSol, usdcToRaw } from "@/lib/format";
 import { fallbackVaultName } from "@/lib/vaultNames";
@@ -99,6 +99,7 @@ export function CreateVaultForm({
         throw new Error("Spending limit must be ≥ 0.");
 
       const program = getProgram(connection, wallet);
+      const protocolConfig = protocolConfigPda();
       const vault = vaultPda(wallet.publicKey, agent);
       const vaultUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, vault, true);
       const [payerBalance, vaultRent, tokenAccountRent] = await Promise.all([
@@ -123,6 +124,7 @@ export function CreateVaultForm({
           human: wallet.publicKey,
           agent,
           usdcMint: USDC_MINT,
+          protocolConfig,
           vault,
           vaultUsdcAta,
           systemProgram: SystemProgram.programId,

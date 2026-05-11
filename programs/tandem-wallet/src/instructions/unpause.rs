@@ -1,7 +1,7 @@
-use anchor_lang::prelude::*;
-use crate::state::*;
 use crate::errors::*;
 use crate::events::*;
+use crate::state::*;
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct Unpause<'info> {
@@ -12,7 +12,7 @@ pub struct Unpause<'info> {
         seeds = [Vault::SEED_PREFIX, vault.human.as_ref(), vault.agent.as_ref()],
         bump = vault.bump,
         constraint = vault.human == human.key() @ VaultError::OnlyHuman,
-        constraint = vault.paused @ VaultError::VaultPaused,
+        constraint = vault.paused @ VaultError::VaultNotPaused,
     )]
     pub vault: Account<'info, Vault>,
 }

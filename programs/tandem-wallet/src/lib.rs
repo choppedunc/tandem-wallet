@@ -74,8 +74,12 @@ pub mod tandem_wallet {
         instructions::claim_rewards::handler(ctx)
     }
 
-    pub fn update_protocol_config(ctx: Context<UpdateProtocolConfig>, fee_bps: u16) -> Result<()> {
-        instructions::update_protocol_config::handler(ctx, fee_bps)
+    pub fn update_protocol_fee(ctx: Context<UpdateProtocolFee>, fee_bps: u16) -> Result<()> {
+        instructions::update_protocol_fee::handler(ctx, fee_bps)
+    }
+
+    pub fn update_treasury(ctx: Context<UpdateTreasury>) -> Result<()> {
+        instructions::update_treasury::handler(ctx)
     }
 
     pub fn transfer_protocol_authority(

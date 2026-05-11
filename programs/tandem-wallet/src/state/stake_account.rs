@@ -5,9 +5,9 @@ use anchor_lang::prelude::*;
 pub struct StakeAccount {
     pub staker: Pubkey,
     pub staked_amount: u64,
-    pub reward_per_token_paid: u128,  // user's snapshot of reward_per_token
-    pub rewards_owed: u64,            // accumulated unclaimed USDC
-    pub last_stake_ts: i64,           // for 7-day lock (resets on every stake)
+    pub reward_per_token_paid: u128, // user's snapshot of reward_per_token
+    pub rewards_owed: u64,           // accumulated unclaimed USDC
+    pub last_stake_ts: i64,          // for 7-day lock (resets on every stake)
     pub bump: u8,
 }
 

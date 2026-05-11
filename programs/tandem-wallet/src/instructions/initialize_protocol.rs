@@ -1,10 +1,10 @@
-use anchor_lang::prelude::*;
-use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::associated_token::get_associated_token_address;
-use anchor_spl::token::{Token, TokenAccount, Mint};
-use crate::state::*;
 use crate::errors::*;
 use crate::events::*;
+use crate::state::*;
+use anchor_lang::prelude::*;
+use anchor_spl::associated_token::get_associated_token_address;
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct InitializeProtocol<'info> {
@@ -35,6 +35,7 @@ pub struct InitializeProtocol<'info> {
     /// USDC ATA for treasury wallet
     #[account(
         constraint = treasury_ata.mint == usdc_mint.key() @ VaultError::InvalidTreasuryAta,
+        constraint = treasury_ata.key() != staker_reward_ata.key() @ VaultError::InvalidTreasuryAta,
         constraint = treasury_ata.key()
             == get_associated_token_address(&treasury_ata.owner, &usdc_mint.key())
             @ VaultError::InvalidTreasuryAta,

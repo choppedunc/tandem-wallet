@@ -1,10 +1,10 @@
-use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
-use anchor_spl::associated_token::AssociatedToken;
-use crate::state::*;
 use crate::errors::*;
 use crate::events::*;
 use crate::helpers;
+use crate::state::*;
+use anchor_lang::prelude::*;
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 pub struct Unstake<'info> {
@@ -29,8 +29,10 @@ pub struct Unstake<'info> {
     /// Staker's TANDEM token account
     #[account(
         mut,
-        constraint = staker_tandem_ata.mint == protocol_config.tandem_mint,
-        constraint = staker_tandem_ata.owner == staker.key(),
+        constraint = staker_tandem_ata.mint == protocol_config.tandem_mint
+            @ VaultError::InvalidStakerTandemAta,
+        constraint = staker_tandem_ata.owner == staker.key()
+            @ VaultError::InvalidStakerTandemAta,
     )]
     pub staker_tandem_ata: Account<'info, TokenAccount>,
 
@@ -44,10 +46,17 @@ pub struct Unstake<'info> {
 
     /// Staker reward USDC ATA (for balance check in update_rewards)
     #[account(
-        constraint = staker_reward_ata.key() == protocol_config.staker_reward_ata,
+        constraint = staker_reward_ata.key() == protocol_config.staker_reward_ata
+            @ VaultError::InvalidStakerRewardAta,
+        constraint = staker_reward_ata.mint == protocol_config.usdc_mint
+            @ VaultError::InvalidStakerRewardAta,
     )]
     pub staker_reward_ata: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = tandem_mint.key() == protocol_config.tandem_mint
+            @ VaultError::InvalidTandemMint,
+    )]
     pub tandem_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -59,10 +68,11 @@ pub fn handler(ctx: Context<Unstake>) -> Result<()> {
 
     // Check 7-day lockup
     let now = Clock::get()?.unix_timestamp;
-    require!(
-        now >= stake_account.last_stake_ts + StakeAccount::LOCKUP_SECONDS,
-        VaultError::LockupNotElapsed
-    );
+    let unlock_ts = stake_account
+        .last_stake_ts
+        .checked_add(StakeAccount::LOCKUP_SECONDS)
+        .ok_or(VaultError::Overflow)?;
+    require!(now >= unlock_ts, VaultError::LockupNotElapsed);
 
     let unstake_amount = stake_account.staked_amount;
     let reward_balance = ctx.accounts.staker_reward_ata.amount;

@@ -1,7 +1,7 @@
+use crate::errors::*;
+use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
-use crate::state::*;
-use crate::errors::*;
 
 const REWARD_PRECISION: u128 = 1_000_000_000_000; // 1e12
 
@@ -93,7 +93,8 @@ pub fn update_rewards(
             .reward_per_token_stored
             .checked_add(delta)
             .ok_or(VaultError::Overflow)?;
-        config.total_rewards_processed = total_deposited_ever as u64;
+        config.total_rewards_processed =
+            u64::try_from(total_deposited_ever).map_err(|_| VaultError::Overflow)?;
     }
 
     if let Some(user) = stake_account {

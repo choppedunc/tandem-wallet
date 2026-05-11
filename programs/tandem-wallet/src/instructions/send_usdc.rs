@@ -1,10 +1,10 @@
-use anchor_lang::prelude::*;
-use anchor_spl::associated_token::get_associated_token_address;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
-use crate::state::*;
 use crate::errors::*;
 use crate::events::*;
 use crate::helpers;
+use crate::state::*;
+use anchor_lang::prelude::*;
+use anchor_spl::associated_token::get_associated_token_address;
+use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 pub struct SendUsdc<'info> {
@@ -16,6 +16,14 @@ pub struct SendUsdc<'info> {
     )]
     pub vault: Account<'info, Vault>,
 
+    /// Protocol config for mint and fee validation
+    #[account(
+        seeds = [ProtocolConfig::SEED_PREFIX],
+        bump = protocol_config.bump,
+        constraint = protocol_config.usdc_mint == vault.usdc_mint @ VaultError::InvalidUsdcMint,
+    )]
+    pub protocol_config: Account<'info, ProtocolConfig>,
+
     #[account(
         mut,
         constraint = vault_usdc_ata.key() == vault.vault_usdc_ata,
@@ -26,6 +34,9 @@ pub struct SendUsdc<'info> {
 
     #[account(
         mut,
+        constraint = recipient_ata.key() != vault.vault_usdc_ata @ VaultError::InvalidRecipientAta,
+        constraint = recipient_ata.key() != protocol_config.staker_reward_ata @ VaultError::InvalidRecipientAta,
+        constraint = recipient_ata.key() != protocol_config.treasury_ata @ VaultError::InvalidRecipientAta,
         constraint = recipient_ata.key()
             == get_associated_token_address(&recipient_ata.owner, &vault.usdc_mint)
             @ VaultError::InvalidRecipientAta,
@@ -37,17 +48,11 @@ pub struct SendUsdc<'info> {
     /// CHECK: Validated manually if present
     pub whitelist_entry: Option<Account<'info, WhitelistEntry>>,
 
-    /// Protocol config for fee calculation
-    #[account(
-        seeds = [ProtocolConfig::SEED_PREFIX],
-        bump = protocol_config.bump,
-    )]
-    pub protocol_config: Account<'info, ProtocolConfig>,
-
     /// Staker reward USDC ATA (receives 50% of fee when staking is active)
     #[account(
         mut,
         constraint = staker_reward_ata.key() == protocol_config.staker_reward_ata,
+        constraint = staker_reward_ata.mint == vault.usdc_mint @ VaultError::InvalidStakerRewardAta,
     )]
     pub staker_reward_ata: Account<'info, TokenAccount>,
 
@@ -55,6 +60,7 @@ pub struct SendUsdc<'info> {
     #[account(
         mut,
         constraint = treasury_ata.key() == protocol_config.treasury_ata,
+        constraint = treasury_ata.mint == vault.usdc_mint @ VaultError::InvalidTreasuryAta,
     )]
     pub treasury_ata: Account<'info, TokenAccount>,
 
@@ -81,15 +87,17 @@ pub fn handler(ctx: Context<SendUsdc>, amount: u64) -> Result<()> {
 
         // Check whitelist
         if let Some(ref wl_entry) = ctx.accounts.whitelist_entry {
-            if wl_entry.vault == vault.key()
-                && wl_entry.address == ctx.accounts.recipient_ata.owner
+            if wl_entry.vault == vault.key() && wl_entry.address == ctx.accounts.recipient_ata.owner
             {
                 whitelisted = true;
             }
         }
 
         if !whitelisted {
-            require!(amount <= vault.spending_limit, VaultError::OverSpendingLimit);
+            require!(
+                amount <= vault.spending_limit,
+                VaultError::OverSpendingLimit
+            );
         }
     }
 

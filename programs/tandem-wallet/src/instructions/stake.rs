@@ -1,10 +1,10 @@
-use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
-use anchor_spl::associated_token::AssociatedToken;
-use crate::state::*;
 use crate::errors::*;
 use crate::events::*;
 use crate::helpers;
+use crate::state::*;
+use anchor_lang::prelude::*;
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
@@ -30,8 +30,10 @@ pub struct Stake<'info> {
     /// Staker's TANDEM token account
     #[account(
         mut,
-        constraint = staker_tandem_ata.mint == protocol_config.tandem_mint,
-        constraint = staker_tandem_ata.owner == staker.key(),
+        constraint = staker_tandem_ata.mint == protocol_config.tandem_mint
+            @ VaultError::InvalidStakerTandemAta,
+        constraint = staker_tandem_ata.owner == staker.key()
+            @ VaultError::InvalidStakerTandemAta,
     )]
     pub staker_tandem_ata: Box<Account<'info, TokenAccount>>,
 
@@ -45,10 +47,17 @@ pub struct Stake<'info> {
 
     /// Staker reward USDC ATA (for balance check in update_rewards)
     #[account(
-        constraint = staker_reward_ata.key() == protocol_config.staker_reward_ata,
+        constraint = staker_reward_ata.key() == protocol_config.staker_reward_ata
+            @ VaultError::InvalidStakerRewardAta,
+        constraint = staker_reward_ata.mint == protocol_config.usdc_mint
+            @ VaultError::InvalidStakerRewardAta,
     )]
     pub staker_reward_ata: Box<Account<'info, TokenAccount>>,
 
+    #[account(
+        constraint = tandem_mint.key() == protocol_config.tandem_mint
+            @ VaultError::InvalidTandemMint,
+    )]
     pub tandem_mint: Account<'info, Mint>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,

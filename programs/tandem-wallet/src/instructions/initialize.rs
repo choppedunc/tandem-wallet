@@ -1,8 +1,9 @@
-use anchor_lang::prelude::*;
-use anchor_spl::token::{Token, TokenAccount, Mint};
-use anchor_spl::associated_token::AssociatedToken;
-use crate::state::*;
+use crate::errors::*;
 use crate::events::*;
+use crate::state::*;
+use anchor_lang::prelude::*;
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -13,6 +14,13 @@ pub struct Initialize<'info> {
     pub agent: UncheckedAccount<'info>,
 
     pub usdc_mint: Account<'info, Mint>,
+
+    #[account(
+        seeds = [ProtocolConfig::SEED_PREFIX],
+        bump = protocol_config.bump,
+        constraint = usdc_mint.key() == protocol_config.usdc_mint @ VaultError::InvalidUsdcMint,
+    )]
+    pub protocol_config: Account<'info, ProtocolConfig>,
 
     #[account(
         init,

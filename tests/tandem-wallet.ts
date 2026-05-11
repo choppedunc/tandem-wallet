@@ -22,10 +22,12 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
-// Load IDL directly since generated types may not match
+// Load the app IDL directly so tests use the same interface as the frontend.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const idl = JSON.parse(fs.readFileSync(path.join(__dirname, "../target/idl/tandem_wallet.json"), "utf-8"));
+const idl = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "../app/src/lib/idl.json"), "utf-8")
+);
 const BPF_LOADER_UPGRADEABLE_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
 );
@@ -148,30 +150,6 @@ describe("tandem-wallet", () => {
     };
   }
 
-  it("Initializes the vault", async () => {
-    await program.methods
-      .initialize(SPENDING_LIMIT)
-      .accounts({
-        human,
-        agent: agent.publicKey,
-        usdcMint,
-        vault,
-        vaultUsdcAta,
-        systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        rent: SYSVAR_RENT_PUBKEY,
-      })
-      .rpc();
-
-    const vaultAccount = await program.account.vault.fetch(vault);
-    expect(vaultAccount.human.toString()).to.equal(human.toString());
-    expect(vaultAccount.agent.toString()).to.equal(agent.publicKey.toString());
-    expect(vaultAccount.spendingLimit.toString()).to.equal(SPENDING_LIMIT.toString());
-    expect(vaultAccount.paused).to.be.false;
-    expect(vaultAccount.proposalCount.toNumber()).to.equal(0);
-  });
-
   it("Rejects invalid protocol fee on initialization", async () => {
     try {
       await program.methods
@@ -281,6 +259,68 @@ describe("tandem-wallet", () => {
     expect(config.totalStaked.toNumber()).to.equal(0);
   });
 
+  it("Rejects vault initialization with a non-protocol USDC mint", async () => {
+    const fakeMint = await createMint(
+      provider.connection,
+      mintAuthority,
+      mintAuthority.publicKey,
+      null,
+      6
+    );
+    const fakeAgent = Keypair.generate();
+    const [fakeVault] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault"), human.toBuffer(), fakeAgent.publicKey.toBuffer()],
+      program.programId
+    );
+    const fakeVaultUsdcAta = getAssociatedTokenAddressSync(fakeMint, fakeVault, true);
+
+    try {
+      await program.methods
+        .initialize(SPENDING_LIMIT)
+        .accounts({
+          human,
+          agent: fakeAgent.publicKey,
+          usdcMint: fakeMint,
+          protocolConfig,
+          vault: fakeVault,
+          vaultUsdcAta: fakeVaultUsdcAta,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidUsdcMint");
+    }
+  });
+
+  it("Initializes the vault", async () => {
+    await program.methods
+      .initialize(SPENDING_LIMIT)
+      .accounts({
+        human,
+        agent: agent.publicKey,
+        usdcMint,
+        protocolConfig,
+        vault,
+        vaultUsdcAta,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        rent: SYSVAR_RENT_PUBKEY,
+      })
+      .rpc();
+
+    const vaultAccount = await program.account.vault.fetch(vault);
+    expect(vaultAccount.human.toString()).to.equal(human.toString());
+    expect(vaultAccount.agent.toString()).to.equal(agent.publicKey.toString());
+    expect(vaultAccount.spendingLimit.toString()).to.equal(SPENDING_LIMIT.toString());
+    expect(vaultAccount.paused).to.be.false;
+    expect(vaultAccount.proposalCount.toNumber()).to.equal(0);
+  });
+
   it("Funds the vault with USDC", async () => {
     await mintTo(provider.connection, mintAuthority, usdcMint, vaultUsdcAta, mintAuthority, INITIAL_VAULT_BALANCE);
 
@@ -306,6 +346,50 @@ describe("tandem-wallet", () => {
       expect.fail("Should have thrown");
     } catch (e: any) {
       expect(e.error.errorCode.code).to.equal("InvalidRecipientAta");
+    }
+  });
+
+  it("Rejects direct sends to the vault's own USDC account", async () => {
+    try {
+      await program.methods
+        .sendUsdc(new BN(1_000_000))
+        .accounts({
+          signer: agent.publicKey,
+          vault,
+          vaultUsdcAta,
+          recipientAta: vaultUsdcAta,
+          whitelistEntry: null,
+          ...feeAccounts(),
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([agent])
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidRecipientAta");
+    }
+  });
+
+  it("Rejects direct sends to protocol fee accounts", async () => {
+    for (const blockedRecipientAta of [stakerRewardAta, treasuryAta]) {
+      try {
+        await program.methods
+          .sendUsdc(new BN(1_000_000))
+          .accounts({
+            signer: agent.publicKey,
+            vault,
+            vaultUsdcAta,
+            recipientAta: blockedRecipientAta,
+            whitelistEntry: null,
+            ...feeAccounts(),
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([agent])
+          .rpc();
+        expect.fail("Should have thrown");
+      } catch (e: any) {
+        expect(e.error.errorCode.code).to.equal("InvalidRecipientAta");
+      }
     }
   });
 
@@ -392,6 +476,40 @@ describe("tandem-wallet", () => {
 
   let proposal1Pda: PublicKey;
 
+  it("Rejects proposals to the vault or protocol fee accounts", async () => {
+    const proposalId = new BN(0);
+    const [badProposalPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("proposal"), vault.toBuffer(), proposalId.toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
+    const blockedRecipients = [
+      { recipient: vault, recipientAta: vaultUsdcAta },
+      { recipient: protocolConfig, recipientAta: stakerRewardAta },
+      { recipient: treasuryWallet.publicKey, recipientAta: treasuryAta },
+    ];
+
+    for (const blocked of blockedRecipients) {
+      try {
+        await program.methods
+          .propose(new BN(150_000_000), "Blocked recipient")
+          .accounts({
+            agent: agent.publicKey,
+            vault,
+            recipient: blocked.recipient,
+            protocolConfig,
+            recipientAta: blocked.recipientAta,
+            proposal: badProposalPda,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([agent])
+          .rpc();
+        expect.fail("Should have thrown");
+      } catch (e: any) {
+        expect(e.error.errorCode.code).to.equal("InvalidRecipientAta");
+      }
+    }
+  });
+
   it("Rejects a proposal whose recipient token account does not match the displayed recipient", async () => {
     const proposalId = new BN(0);
     const [badProposalPda] = PublicKey.findProgramAddressSync(
@@ -406,6 +524,7 @@ describe("tandem-wallet", () => {
           agent: agent.publicKey,
           vault,
           recipient: recipient.publicKey,
+          protocolConfig,
           recipientAta: treasuryAta,
           proposal: badProposalPda,
           systemProgram: SystemProgram.programId,
@@ -431,6 +550,7 @@ describe("tandem-wallet", () => {
         agent: agent.publicKey,
         vault,
         recipient: recipient.publicKey,
+        protocolConfig,
         recipientAta,
         proposal: proposal1Pda,
         systemProgram: SystemProgram.programId,
@@ -497,12 +617,24 @@ describe("tandem-wallet", () => {
         agent: agent.publicKey,
         vault,
         recipient: recipient.publicKey,
+        protocolConfig,
         recipientAta,
         proposal: proposal2Pda,
         systemProgram: SystemProgram.programId,
       })
       .signers([agent])
       .rpc();
+
+    try {
+      await program.methods
+        .closeProposal()
+        .accounts({ agent: agent.publicKey, vault, proposal: proposal2Pda })
+        .signers([agent])
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("ProposalStillPending");
+    }
 
     await program.methods
       .cancelProposal()
@@ -655,6 +787,13 @@ describe("tandem-wallet", () => {
     await program.methods.pause().accounts({ human, vault }).rpc();
     const v = await program.account.vault.fetch(vault);
     expect(v.paused).to.be.true;
+
+    try {
+      await program.methods.pause().accounts({ human, vault }).rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("VaultPaused");
+    }
   });
 
   it("Agent send fails when agent actions are paused", async () => {
@@ -702,6 +841,13 @@ describe("tandem-wallet", () => {
     await program.methods.unpause().accounts({ human, vault }).rpc();
     const v = await program.account.vault.fetch(vault);
     expect(v.paused).to.be.false;
+
+    try {
+      await program.methods.unpause().accounts({ human, vault }).rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("VaultNotPaused");
+    }
   });
 
   it("Agent send succeeds after unpause", async () => {
@@ -962,10 +1108,38 @@ describe("tandem-wallet", () => {
     }
   });
 
-  it("Rejects protocol config treasury updates to non-ATA token accounts", async () => {
+  it("Rejects reward claims to non-canonical staker USDC token accounts", async () => {
+    const nonAtaStakerUsdc = await createAccount(
+      provider.connection,
+      mintAuthority,
+      usdcMint,
+      staker.publicKey,
+      Keypair.generate()
+    );
+
     try {
       await program.methods
-        .updateProtocolConfig(50)
+        .claimRewards()
+        .accounts({
+          staker: staker.publicKey,
+          protocolConfig,
+          stakeAccount: stakeAccountPda,
+          stakerRewardAta,
+          stakerUsdcAta: nonAtaStakerUsdc,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([staker])
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("InvalidRecipientAta");
+    }
+  });
+
+  it("Rejects treasury updates to non-ATA token accounts", async () => {
+    try {
+      await program.methods
+        .updateTreasury()
         .accounts({
           authority: human,
           protocolConfig,
@@ -978,14 +1152,13 @@ describe("tandem-wallet", () => {
     }
   });
 
-  it("Rejects protocol config updates by non-authority", async () => {
+  it("Rejects protocol fee updates by non-authority", async () => {
     try {
       await program.methods
-        .updateProtocolConfig(50)
+        .updateProtocolFee(50)
         .accounts({
           authority: attacker.publicKey,
           protocolConfig,
-          treasuryAta,
         })
         .signers([attacker])
         .rpc();
@@ -998,11 +1171,10 @@ describe("tandem-wallet", () => {
   it("Rejects invalid protocol fee updates", async () => {
     try {
       await program.methods
-        .updateProtocolConfig(10_001)
+        .updateProtocolFee(10_001)
         .accounts({
           authority: human,
           protocolConfig,
-          treasuryAta,
         })
         .rpc();
       expect.fail("Should have thrown");
@@ -1042,11 +1214,10 @@ describe("tandem-wallet", () => {
 
     try {
       await program.methods
-        .updateProtocolConfig(50)
+        .updateProtocolFee(50)
         .accounts({
           authority: human,
           protocolConfig,
-          treasuryAta,
         })
         .rpc();
       expect.fail("Should have thrown");
@@ -1055,11 +1226,10 @@ describe("tandem-wallet", () => {
     }
 
     await program.methods
-      .updateProtocolConfig(50)
+      .updateProtocolFee(50)
       .accounts({
         authority: nextAuthority.publicKey,
         protocolConfig,
-        treasuryAta,
       })
       .signers([nextAuthority])
       .rpc();
@@ -1077,11 +1247,10 @@ describe("tandem-wallet", () => {
       .rpc();
 
     await program.methods
-      .updateProtocolConfig(FEE_BPS)
+      .updateProtocolFee(FEE_BPS)
       .accounts({
         authority: human,
         protocolConfig,
-        treasuryAta,
       })
       .rpc();
 
@@ -1090,27 +1259,71 @@ describe("tandem-wallet", () => {
     expect(config.feeBps).to.equal(FEE_BPS);
   });
 
-  it("Update protocol config", async () => {
+  it("Updates protocol fee without changing treasury", async () => {
+    const before = await program.account.protocolConfig.fetch(protocolConfig);
+
     await program.methods
-      .updateProtocolConfig(50) // change to 0.50%
+      .updateProtocolFee(50) // change to 0.50%
       .accounts({
         authority: human,
         protocolConfig,
-        treasuryAta,
       })
       .rpc();
 
-    const config = await program.account.protocolConfig.fetch(protocolConfig);
+    let config = await program.account.protocolConfig.fetch(protocolConfig);
     expect(config.feeBps).to.equal(50);
+    expect(config.treasuryAta.toString()).to.equal(before.treasuryAta.toString());
 
     // Reset back to 25 bps
     await program.methods
-      .updateProtocolConfig(FEE_BPS)
+      .updateProtocolFee(FEE_BPS)
+      .accounts({
+        authority: human,
+        protocolConfig,
+      })
+      .rpc();
+
+    config = await program.account.protocolConfig.fetch(protocolConfig);
+    expect(config.feeBps).to.equal(FEE_BPS);
+    expect(config.treasuryAta.toString()).to.equal(before.treasuryAta.toString());
+  });
+
+  it("Updates treasury without changing protocol fee", async () => {
+    const newTreasuryWallet = Keypair.generate();
+    const newTreasuryAta = (
+      await getOrCreateAssociatedTokenAccount(
+        provider.connection,
+        mintAuthority,
+        usdcMint,
+        newTreasuryWallet.publicKey
+      )
+    ).address;
+    const before = await program.account.protocolConfig.fetch(protocolConfig);
+
+    await program.methods
+      .updateTreasury()
+      .accounts({
+        authority: human,
+        protocolConfig,
+        treasuryAta: newTreasuryAta,
+      })
+      .rpc();
+
+    let config = await program.account.protocolConfig.fetch(protocolConfig);
+    expect(config.treasuryAta.toString()).to.equal(newTreasuryAta.toString());
+    expect(config.feeBps).to.equal(before.feeBps);
+
+    await program.methods
+      .updateTreasury()
       .accounts({
         authority: human,
         protocolConfig,
         treasuryAta,
       })
       .rpc();
+
+    config = await program.account.protocolConfig.fetch(protocolConfig);
+    expect(config.treasuryAta.toString()).to.equal(treasuryAta.toString());
+    expect(config.feeBps).to.equal(before.feeBps);
   });
 });

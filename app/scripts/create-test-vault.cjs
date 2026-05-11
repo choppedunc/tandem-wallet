@@ -70,6 +70,10 @@ async function main() {
     [Buffer.from("vault"), humanKeypair.publicKey.toBuffer(), agentKeypair.publicKey.toBuffer()],
     programId
   );
+  const [protocolConfig] = PublicKey.findProgramAddressSync(
+    [Buffer.from("protocol_config")],
+    programId
+  );
   const vaultUsdcAta = getAssociatedTokenAddressSync(usdcMint, vault, true);
 
   const existing = await connection.getAccountInfo(vault);
@@ -81,6 +85,7 @@ async function main() {
         human: humanKeypair.publicKey,
         agent: agentKeypair.publicKey,
         usdcMint,
+        protocolConfig,
         vault,
         vaultUsdcAta,
         systemProgram: SystemProgram.programId,

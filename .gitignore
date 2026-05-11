@@ -23,4 +23,3 @@ devnet-*-private.json
 !devnet-vault.json
 !devnet-smoke-vault.json
 *.so
-Cargo.lock

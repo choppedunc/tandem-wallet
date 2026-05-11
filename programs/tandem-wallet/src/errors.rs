@@ -34,12 +34,22 @@ pub enum VaultError {
     OnlyAuthority,
     #[msg("Fee basis points must be <= 10000")]
     InvalidFeeBps,
+    #[msg("Vault mint must match the protocol USDC mint")]
+    InvalidUsdcMint,
     #[msg("Recipient token account must be the recipient's associated USDC token account")]
     InvalidRecipientAta,
+    #[msg("Staker reward token account must be the configured USDC reward account")]
+    InvalidStakerRewardAta,
     #[msg("Treasury token account must be the treasury wallet's associated USDC token account")]
     InvalidTreasuryAta,
     #[msg("Vault token account must be the vault's associated USDC token account")]
     InvalidVaultAta,
     #[msg("New authority must not be the default public key")]
     InvalidAuthority,
+    #[msg("Proposal must be executed or cancelled before it can be closed")]
+    ProposalStillPending,
+    #[msg("Staker TANDEM token account must match the staker and protocol TANDEM mint")]
+    InvalidStakerTandemAta,
+    #[msg("TANDEM mint must match the protocol TANDEM mint")]
+    InvalidTandemMint,
 }

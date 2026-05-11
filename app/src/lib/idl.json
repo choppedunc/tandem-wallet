@@ -31,6 +31,9 @@
           "name": "usdc_mint"
         },
         {
+          "name": "protocol_config"
+        },
+        {
           "name": "vault",
           "writable": true
         },
@@ -83,6 +86,9 @@
           "name": "vault"
         },
         {
+          "name": "protocol_config"
+        },
+        {
           "name": "vault_usdc_ata",
           "writable": true
         },
@@ -93,9 +99,6 @@
         {
           "name": "whitelist_entry",
           "optional": true
-        },
-        {
-          "name": "protocol_config"
         },
         {
           "name": "staker_reward_ata",
@@ -141,6 +144,9 @@
         },
         {
           "name": "recipient"
+        },
+        {
+          "name": "protocol_config"
         },
         {
           "name": "recipient_ata"
@@ -190,15 +196,15 @@
           "writable": true
         },
         {
+          "name": "protocol_config"
+        },
+        {
           "name": "vault_usdc_ata",
           "writable": true
         },
         {
           "name": "recipient_ata",
           "writable": true
-        },
-        {
-          "name": "protocol_config"
         },
         {
           "name": "staker_reward_ata",
@@ -638,16 +644,45 @@
       "args": []
     },
     {
-      "name": "update_protocol_config",
+      "name": "update_protocol_fee",
       "discriminator": [
-        197,
-        97,
-        123,
-        54,
-        221,
-        168,
-        11,
-        135
+        170,
+        136,
+        6,
+        60,
+        43,
+        130,
+        81,
+        96
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "protocol_config",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "fee_bps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "update_treasury",
+      "discriminator": [
+        60,
+        16,
+        243,
+        66,
+        96,
+        59,
+        254,
+        131
       ],
       "accounts": [
         {
@@ -662,12 +697,7 @@
           "name": "treasury_ata"
         }
       ],
-      "args": [
-        {
-          "name": "fee_bps",
-          "type": "u16"
-        }
-      ]
+      "args": []
     },
     {
       "name": "transfer_protocol_authority",
@@ -954,17 +984,17 @@
     {
       "code": 6000,
       "name": "OnlyHuman",
-      "msg": "Only the human authority can perform this action"
+      "msg": "Only the human signer can perform this action"
     },
     {
       "code": 6001,
       "name": "OnlyAgent",
-      "msg": "Only the agent can perform this action"
+      "msg": "Only the agent signer can perform this action"
     },
     {
       "code": 6002,
       "name": "OnlyAgentOrHuman",
-      "msg": "Only the agent or human can perform this action"
+      "msg": "Only the agent or human signer can perform this action"
     },
     {
       "code": 6003,
@@ -1033,23 +1063,48 @@
     },
     {
       "code": 6016,
+      "name": "InvalidUsdcMint",
+      "msg": "Vault mint must match the protocol USDC mint"
+    },
+    {
+      "code": 6017,
       "name": "InvalidRecipientAta",
       "msg": "Recipient token account must be the recipient's associated USDC token account"
     },
     {
-      "code": 6017,
+      "code": 6018,
+      "name": "InvalidStakerRewardAta",
+      "msg": "Staker reward token account must be the configured USDC reward account"
+    },
+    {
+      "code": 6019,
       "name": "InvalidTreasuryAta",
       "msg": "Treasury token account must be the treasury wallet's associated USDC token account"
     },
     {
-      "code": 6018,
+      "code": 6020,
       "name": "InvalidVaultAta",
       "msg": "Vault token account must be the vault's associated USDC token account"
     },
     {
-      "code": 6019,
+      "code": 6021,
       "name": "InvalidAuthority",
       "msg": "New authority must not be the default public key"
+    },
+    {
+      "code": 6022,
+      "name": "ProposalStillPending",
+      "msg": "Proposal must be executed or cancelled before it can be closed"
+    },
+    {
+      "code": 6023,
+      "name": "InvalidStakerTandemAta",
+      "msg": "Staker TANDEM token account must match the staker and protocol TANDEM mint"
+    },
+    {
+      "code": 6024,
+      "name": "InvalidTandemMint",
+      "msg": "TANDEM mint must match the protocol TANDEM mint"
     }
   ],
   "types": [

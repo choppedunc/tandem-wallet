@@ -1,9 +1,10 @@
-use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
-use crate::state::*;
 use crate::errors::*;
 use crate::events::*;
 use crate::helpers;
+use crate::state::*;
+use anchor_lang::prelude::*;
+use anchor_spl::associated_token::get_associated_token_address;
+use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 pub struct ClaimRewards<'info> {
@@ -27,15 +28,23 @@ pub struct ClaimRewards<'info> {
     /// Protocol's USDC reward ATA (source of reward payouts)
     #[account(
         mut,
-        constraint = staker_reward_ata.key() == protocol_config.staker_reward_ata,
+        constraint = staker_reward_ata.key() == protocol_config.staker_reward_ata
+            @ VaultError::InvalidStakerRewardAta,
+        constraint = staker_reward_ata.mint == protocol_config.usdc_mint
+            @ VaultError::InvalidStakerRewardAta,
     )]
     pub staker_reward_ata: Account<'info, TokenAccount>,
 
     /// Staker's personal USDC ATA (destination for claimed rewards)
     #[account(
         mut,
-        constraint = staker_usdc_ata.mint == protocol_config.usdc_mint,
-        constraint = staker_usdc_ata.owner == staker.key(),
+        constraint = staker_usdc_ata.mint == protocol_config.usdc_mint
+            @ VaultError::InvalidRecipientAta,
+        constraint = staker_usdc_ata.owner == staker.key()
+            @ VaultError::InvalidRecipientAta,
+        constraint = staker_usdc_ata.key()
+            == get_associated_token_address(&staker.key(), &protocol_config.usdc_mint)
+            @ VaultError::InvalidRecipientAta,
     )]
     pub staker_usdc_ata: Account<'info, TokenAccount>,
 
@@ -80,7 +89,7 @@ pub fn handler(ctx: Context<ClaimRewards>) -> Result<()> {
     stake_account.rewards_owed = 0;
     config.total_rewards_claimed = config
         .total_rewards_claimed
-        .checked_add(rewards as u64)
+        .checked_add(rewards)
         .ok_or(VaultError::Overflow)?;
 
     emit!(RewardsClaimed {

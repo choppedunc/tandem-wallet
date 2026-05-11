@@ -1,4 +1,5 @@
 const anchor = require("@coral-xyz/anchor");
+const { getOrCreateAssociatedTokenAccount } = require("@solana/spl-token");
 const { PublicKey } = require("@solana/web3.js");
 const fs = require("fs");
 const os = require("os");
@@ -13,14 +14,12 @@ function readKeypair(filePath) {
 }
 
 async function main() {
-  const feeBpsArg = process.argv[2] ?? process.env.PROTOCOL_FEE_BPS;
-  if (feeBpsArg === undefined) {
-    throw new Error("Usage: update-protocol-fee.cjs <fee_bps>");
-  }
+  const treasuryOwnerArg =
+    process.argv[2] ?? process.env.TREASURY_OWNER ?? process.env.TREASURY_WALLET;
+  const treasuryAtaArg = process.env.TREASURY_ATA;
 
-  const feeBps = Number(feeBpsArg);
-  if (!Number.isInteger(feeBps) || feeBps < 0 || feeBps > 10_000) {
-    throw new Error("fee_bps must be an integer between 0 and 10000");
+  if (!treasuryOwnerArg && !treasuryAtaArg) {
+    throw new Error("Usage: update-treasury.cjs <treasury_owner_wallet>");
   }
 
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com";
@@ -41,21 +40,38 @@ async function main() {
     programId
   );
   const config = await program.account.protocolConfig.fetch(protocolConfig);
+  let treasuryAta;
+  let treasuryOwner = null;
+
+  if (treasuryAtaArg) {
+    treasuryAta = new PublicKey(treasuryAtaArg);
+  } else {
+    treasuryOwner = new PublicKey(treasuryOwnerArg);
+    const account = await getOrCreateAssociatedTokenAccount(
+      connection,
+      authorityKeypair,
+      config.usdcMint,
+      treasuryOwner
+    );
+    treasuryAta = account.address;
+  }
 
   const signature = await program.methods
-    .updateProtocolFee(feeBps)
+    .updateTreasury()
     .accounts({
       authority: authorityKeypair.publicKey,
       protocolConfig,
+      treasuryAta,
     })
     .rpc();
 
   console.log(JSON.stringify({
     signature,
     protocolConfig: protocolConfig.toBase58(),
-    previousFeeBps: config.feeBps,
-    feeBps,
-    treasuryAta: config.treasuryAta.toBase58(),
+    previousTreasuryAta: config.treasuryAta.toBase58(),
+    treasuryAta: treasuryAta.toBase58(),
+    treasuryOwner: treasuryOwner ? treasuryOwner.toBase58() : null,
+    feeBps: config.feeBps,
   }, null, 2));
 }
 
