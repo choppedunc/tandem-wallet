@@ -1,10 +1,14 @@
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Set ${name} before running Tandem skill scripts.`);
+  }
+  return value;
+}
+
 export const config = {
-  agentPrivateKey:
-    process.env.TANDEM_AGENT_PRIVATE_KEY ??
-    "AKivfyRmLxbzDewkGkD28FNU9U5aNsKKKoZBQNjEjvGX2UsQiZ88yuEh8Q4u8opH8odDD2f1NXSjARwMNzR2SPD",
-  vaultAddress:
-    process.env.TANDEM_VAULT_ADDRESS ??
-    "QKaKEKgnrDSk6KxCdj7bhSNEkQxzq8E9KYoebWQmybP",
+  agentPrivateKey: requireEnv("TANDEM_AGENT_PRIVATE_KEY"),
+  vaultAddress: requireEnv("TANDEM_VAULT_ADDRESS"),
   rpcUrl: process.env.TANDEM_RPC_URL ?? "https://api.devnet.solana.com",
   programId:
     process.env.TANDEM_PROGRAM_ID ??

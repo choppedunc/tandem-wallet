@@ -13,6 +13,8 @@ const envSecretPattern =
   /^\s*(?:export\s+)?[A-Z0-9_]*(?:PRIVATE|SECRET|MNEMONIC|KEYPAIR)[A-Z0-9_]*\s*=\s*["']?([^"'\s#]+)["']?/;
 const labelledBase58SecretPattern =
   /(private[_ -]?key|secret[_ -]?key|mnemonic|seed phrase)\s*[:=]\s*["'`]?([1-9A-HJ-NP-Za-km-z]{80,120})/i;
+const multilineLabelledBase58SecretPattern =
+  /(?:private[_ -]?key|secret[_ -]?key|agentPrivateKey|agentPrivateKeyBase58|mnemonic|seed phrase)[\s\S]{0,160}["'`]([1-9A-HJ-NP-Za-km-z]{80,120})["'`]/i;
 
 function isByteArray(value) {
   return (
@@ -58,6 +60,13 @@ for (const file of trackedFiles) {
 
   const content = fs.readFileSync(file, "utf8");
   const lines = content.split(/\r?\n/);
+
+  if (multilineLabelledBase58SecretPattern.test(content)) {
+    findings.push({
+      file,
+      reason: "tracked labelled base58 private/secret key",
+    });
+  }
 
   lines.forEach((line, index) => {
     const envMatch = line.match(envSecretPattern);

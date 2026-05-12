@@ -19,9 +19,7 @@ id.json
 *.key
 devnet-*-keypair.json
 devnet-*-private.json
-!devnet-protocol.json
-!devnet-vault.json
-!devnet-smoke-vault.json
+devnet-*.json
 *.so
 SECURITY_AUDIT*.md
 CLAUDE_AUDIT_REVIEW*.md
