@@ -66,6 +66,8 @@ pub struct Stake<'info> {
 }
 
 pub fn handler(ctx: Context<Stake>, amount: u64) -> Result<()> {
+    helpers::require_staking_enabled()?;
+
     require!(amount > 0, VaultError::ZeroAmount);
 
     let config = &mut ctx.accounts.protocol_config;

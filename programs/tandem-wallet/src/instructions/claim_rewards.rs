@@ -52,6 +52,8 @@ pub struct ClaimRewards<'info> {
 }
 
 pub fn handler(ctx: Context<ClaimRewards>) -> Result<()> {
+    helpers::require_staking_enabled()?;
+
     let reward_balance = ctx.accounts.staker_reward_ata.amount;
     let config_bump = ctx.accounts.protocol_config.bump;
 

@@ -60,6 +60,32 @@ function CopyButton({ value, label }: { value: string | null; label: string }) {
   );
 }
 
+function DownloadKeypairButton({ value }: { value: string | null }) {
+  function download() {
+    if (!value) return;
+    const blob = new Blob([`${value}\n`], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "agent-keypair.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={download}
+      disabled={!value}
+      className="shrink-0 border border-line-soft px-3 py-1.5 text-[0.65rem] font-display uppercase tracking-[0.14em] text-muted hover:border-line hover:text-text disabled:opacity-50"
+    >
+      Download JSON
+    </button>
+  );
+}
+
 export function CreateVaultForm({
   onCreated,
 }: {
@@ -71,16 +97,28 @@ export function CreateVaultForm({
   const [agentMode, setAgentMode] = useState<"generate" | "paste">("generate");
   const [agentPubkeyInput, setAgentPubkeyInput] = useState("");
   const [generatedSecret, setGeneratedSecret] = useState<string | null>(null);
+  const [generatedKeypairJson, setGeneratedKeypairJson] = useState<string | null>(
+    null
+  );
   const [generatedPubkey, setGeneratedPubkey] = useState<string | null>(null);
   const [limit, setLimit] = useState("50");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmationStep, setConfirmationStep] = useState<"stored" | "risk" | null>(null);
+  const [confirmationStep, setConfirmationStep] = useState<
+    "stored" | "risk" | null
+  >(null);
+
+  function clearGeneratedAgent() {
+    setGeneratedPubkey(null);
+    setGeneratedSecret(null);
+    setGeneratedKeypairJson(null);
+  }
 
   function generateAgent() {
     const kp = Keypair.generate();
     setGeneratedPubkey(kp.publicKey.toBase58());
     setGeneratedSecret(bs58.encode(kp.secretKey));
+    setGeneratedKeypairJson(JSON.stringify(Array.from(kp.secretKey), null, 2));
   }
 
   async function createVault() {
@@ -136,6 +174,7 @@ export function CreateVaultForm({
 
       onCreated(vault, vaultName.trim() || fallbackVaultName(vault));
       setGeneratedSecret(null);
+      setGeneratedKeypairJson(null);
       setGeneratedPubkey(null);
       setAgentPubkeyInput("");
       setVaultName("");
@@ -190,7 +229,10 @@ export function CreateVaultForm({
           <div className="flex gap-2 mb-3">
             <button
               type="button"
-              onClick={() => setAgentMode("generate")}
+              onClick={() => {
+                setAgentMode("generate");
+                setAgentPubkeyInput("");
+              }}
               className={`px-3 py-2 text-sm font-display uppercase tracking-wider border ${
                 agentMode === "generate"
                   ? "border-line text-text bg-[rgba(10,186,181,0.08)]"
@@ -201,7 +243,10 @@ export function CreateVaultForm({
             </button>
             <button
               type="button"
-              onClick={() => setAgentMode("paste")}
+              onClick={() => {
+                setAgentMode("paste");
+                clearGeneratedAgent();
+              }}
               className={`px-3 py-2 text-sm font-display uppercase tracking-wider border ${
                 agentMode === "paste"
                   ? "border-line text-text bg-[rgba(10,186,181,0.08)]"
@@ -238,16 +283,36 @@ export function CreateVaultForm({
                   <div>
                     <div className="mb-1.5 flex items-center justify-between gap-3">
                       <div className="text-xs uppercase tracking-[0.14em] text-accent font-display">
-                        Secret key
+                        Private key (base58)
                       </div>
                       <CopyButton value={generatedSecret} label="Copy" />
                     </div>
                     <code className="block text-xs break-all font-display text-text">
                       {generatedSecret}
                     </code>
+                  </div>
+                  <div>
+                    <div className="mb-1.5 flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-xs uppercase tracking-[0.14em] text-accent font-display">
+                        Agent keypair file
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <CopyButton
+                          value={generatedKeypairJson}
+                          label="Copy JSON"
+                        />
+                        <DownloadKeypairButton value={generatedKeypairJson} />
+                      </div>
+                    </div>
+                    <code className="block max-h-24 overflow-auto border border-line-soft bg-black/20 p-3 text-xs font-display text-text">
+                      {generatedKeypairJson}
+                    </code>
                     <p className="text-xs mt-2 text-muted">
                       Shown once and cleared after vault creation. Tandem does
-                      not store this key. Store it where your agent can read it.
+                      not store this key. The setup command expects this JSON
+                      file at ~/.tandem/agent-keypair.json on the machine
+                      running your agent. Keep the base58 private key as a
+                      backup, and keep both formats out of repos and chats.
                     </p>
                   </div>
                 </div>
@@ -311,11 +376,11 @@ export function CreateVaultForm({
                   Agent key check
                 </p>
                 <h2 className="mb-3 font-display text-2xl font-bold text-text">
-                  Have you stored the agent secret key?
+                  Have you stored the agent keypair?
                 </h2>
                 <p className="text-sm text-muted">
-                  Confirm that the generated secret key has been saved somewhere
-                  safe that only your agent can read.
+                  Confirm that the generated private key or keypair JSON file
+                  has been saved somewhere safe that only your agent can read.
                 </p>
                 <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button
@@ -343,10 +408,10 @@ export function CreateVaultForm({
                   Are you sure the agent key is stored?
                 </h2>
                 <p className="text-sm text-muted">
-                  If this key is lost or misplaced, your agent will not be able
-                  to make transactions from this vault. Your human wallet can
-                  still move funds manually, but automation will stop until you
-                  migrate to a new vault or agent.
+                  If this keypair is lost or misplaced, your agent will not be
+                  able to make transactions from this vault. Your human wallet
+                  can still move funds manually, but automation will stop until
+                  you migrate to a new vault or agent.
                 </p>
                 <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button

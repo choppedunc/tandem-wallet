@@ -5,6 +5,18 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 const REWARD_PRECISION: u128 = 1_000_000_000_000; // 1e12
 
+pub fn require_staking_enabled() -> Result<()> {
+    #[cfg(not(feature = "staking-enabled"))]
+    {
+        return err!(VaultError::StakingDisabled);
+    }
+
+    #[cfg(feature = "staking-enabled")]
+    {
+        Ok(())
+    }
+}
+
 /// Calculate fee and transfer to the staker reward and treasury ATAs.
 /// Returns the total fee amount deducted.
 pub fn calculate_and_transfer_fee<'info>(

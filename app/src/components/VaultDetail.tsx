@@ -12,6 +12,7 @@ import { ProposalHistoryPanel } from "./ProposalHistoryPanel";
 import { ProposalsPanel } from "./ProposalsPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { WhitelistPanel } from "./WhitelistPanel";
+import { AgentConnectorPanel } from "./AgentConnectorPanel";
 
 export type VaultData = {
   address: PublicKey;
@@ -24,10 +25,24 @@ export type VaultData = {
   proposalCount: BN;
 };
 
-type Tab = "overview" | "proposals" | "history" | "settings" | "whitelist";
+type Tab =
+  | "overview"
+  | "proposals"
+  | "history"
+  | "settings"
+  | "whitelist"
+  | "agent";
 const LIVE_REFRESH_INTERVAL_MS = 15_000;
 
-function Stat({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) {
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: React.ReactNode;
+  accent?: string;
+}) {
   return (
     <div className="border border-line-soft px-4 py-3 bg-[rgba(3,17,19,0.7)]">
       <div className="text-[0.65rem] uppercase tracking-[0.18em] text-muted font-display mb-1">
@@ -114,7 +129,10 @@ export function VaultDetail({
       refreshLiveState,
       "confirmed"
     );
-    const interval = window.setInterval(refreshLiveState, LIVE_REFRESH_INTERVAL_MS);
+    const interval = window.setInterval(
+      refreshLiveState,
+      LIVE_REFRESH_INTERVAL_MS
+    );
 
     return () => {
       cancelled = true;
@@ -143,6 +161,7 @@ export function VaultDetail({
       { id: "history", label: "History" },
       { id: "settings", label: "Settings" },
       { id: "whitelist", label: "Whitelist" },
+      { id: "agent", label: "Agent" },
     ],
     [pendingProposalCount]
   );
@@ -192,7 +211,10 @@ export function VaultDetail({
               <span>{t.label}</span>
               {t.badge ? (
                 <span className="inline-flex items-center gap-1.5 text-accent-2">
-                  <span aria-hidden="true" className="relative flex h-2.5 w-2.5">
+                  <span
+                    aria-hidden="true"
+                    className="relative flex h-2.5 w-2.5"
+                  >
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#d45f67] opacity-60" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#d45f67] shadow-[0_0_10px_rgba(212,95,103,0.45)]" />
                   </span>
@@ -205,12 +227,21 @@ export function VaultDetail({
       </div>
 
       {tab === "overview" && (
-        <VaultOverview vault={vault} usdcBalance={usdcBalance} onChange={handleChange} />
+        <VaultOverview
+          vault={vault}
+          usdcBalance={usdcBalance}
+          onChange={handleChange}
+        />
       )}
-      {tab === "proposals" && <ProposalsPanel vault={vault} onChange={handleChange} />}
+      {tab === "proposals" && (
+        <ProposalsPanel vault={vault} onChange={handleChange} />
+      )}
       {tab === "history" && <ProposalHistoryPanel vault={vault} />}
-      {tab === "settings" && <SettingsPanel vault={vault} onChange={handleChange} />}
+      {tab === "settings" && (
+        <SettingsPanel vault={vault} onChange={handleChange} />
+      )}
       {tab === "whitelist" && <WhitelistPanel vault={vault} />}
+      {tab === "agent" && <AgentConnectorPanel vault={vault} />}
     </div>
   );
 }

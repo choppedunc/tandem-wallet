@@ -4,7 +4,9 @@
     "lint": "npm run check:secrets && npm run lint --prefix app",
     "build": "npm run build --prefix app",
     "smoke:devnet": "npm run smoke:devnet --prefix app",
-    "check-admin:devnet": "npm run check-admin:devnet --prefix app"
+    "check-admin:devnet": "npm run check-admin:devnet --prefix app",
+    "agent": "node packages/agent-connector/bin/tandem-agent.cjs",
+    "agent:mcp": "node packages/agent-connector/bin/tandem-agent-mcp.cjs"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1"

@@ -23,3 +23,7 @@ devnet-*-private.json
 !devnet-vault.json
 !devnet-smoke-vault.json
 *.so
+SECURITY_AUDIT*.md
+CLAUDE_AUDIT_REVIEW*.md
+Claude Audit Review.md
+recap-solazy.md

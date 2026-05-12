@@ -40,7 +40,15 @@ async function main() {
   if (!Number.isInteger(feeBps) || feeBps < 0 || feeBps > 10_000) {
     throw new Error("PROTOCOL_FEE_BPS must be an integer between 0 and 10000");
   }
+  const isMainnetDeploy =
+    process.env.MAINNET_DEPLOY === "true" || /mainnet/i.test(rpcUrl);
   const authorityKeypair = readKeypair(process.env.ANCHOR_WALLET || "~/.config/solana/id.json");
+  if (isMainnetDeploy && !process.env.TREASURY_OWNER && !process.env.TREASURY_WALLET) {
+    throw new Error("TREASURY_OWNER or TREASURY_WALLET is required for mainnet initialization");
+  }
+  if (isMainnetDeploy && !process.env.TANDEM_MINT) {
+    throw new Error("TANDEM_MINT is required for mainnet initialization");
+  }
   const treasuryOwner = new PublicKey(
     process.env.TREASURY_OWNER ||
       process.env.TREASURY_WALLET ||
@@ -80,13 +88,18 @@ async function main() {
     return;
   }
 
-  const tandemMint = await createMint(
-    connection,
-    authorityKeypair,
-    authorityKeypair.publicKey,
-    null,
-    6
-  );
+  let createdTandemMint = false;
+  let tandemMint = process.env.TANDEM_MINT ? new PublicKey(process.env.TANDEM_MINT) : null;
+  if (!tandemMint) {
+    tandemMint = await createMint(
+      connection,
+      authorityKeypair,
+      authorityKeypair.publicKey,
+      null,
+      6
+    );
+    createdTandemMint = true;
+  }
   const treasuryAta = await getOrCreateAssociatedTokenAccount(
     connection,
     authorityKeypair,
@@ -124,6 +137,7 @@ async function main() {
     feeBps,
     usdcMint: usdcMint.toBase58(),
     tandemMint: tandemMint.toBase58(),
+    tandemMintCreated: createdTandemMint,
     stakerRewardAta: stakerRewardAta.toBase58(),
     stakeTandemAta: stakeTandemAta.toBase58(),
     treasuryWallet: treasuryOwner.toBase58(),

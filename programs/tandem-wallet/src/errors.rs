@@ -52,4 +52,6 @@ pub enum VaultError {
     InvalidStakerTandemAta,
     #[msg("TANDEM mint must match the protocol TANDEM mint")]
     InvalidTandemMint,
+    #[msg("Staking is not enabled for this deployment")]
+    StakingDisabled,
 }

@@ -32,6 +32,9 @@ jobs:
       - name: Lint and secret scan
         run: npm run lint
 
+      - name: Check agent connector package
+        run: npm run check --prefix packages/agent-connector
+
       - name: Build app
         run: npm run build
 
@@ -67,7 +70,7 @@ jobs:
           echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
 
       - name: Install Anchor CLI
-        run: cargo install --git https://github.com/coral-xyz/anchor --tag "${ANCHOR_VERSION}" anchor-cli --locked
+        run: npm install -g "@coral-xyz/anchor-cli@${ANCHOR_VERSION#v}"
 
       - name: Create CI wallet
         run: |
@@ -87,5 +90,14 @@ jobs:
       - name: Build SBF program
         run: cargo build-sbf --manifest-path programs/tandem-wallet/Cargo.toml --sbf-out-dir target/deploy
 
-      - name: Test Anchor program
+      - name: Test Anchor program with staking disabled
         run: anchor test --skip-build --provider.cluster localnet
+
+      - name: Build SBF program with staking enabled
+        run: cargo build-sbf --manifest-path programs/tandem-wallet/Cargo.toml --sbf-out-dir target/deploy --features staking-enabled
+
+      - name: Test Anchor program with staking enabled
+        run: STAKING_ENABLED=true anchor test --skip-build --provider.cluster localnet
+
+      - name: Restore default SBF program
+        run: cargo build-sbf --manifest-path programs/tandem-wallet/Cargo.toml --sbf-out-dir target/deploy

@@ -63,6 +63,8 @@ pub struct Unstake<'info> {
 }
 
 pub fn handler(ctx: Context<Unstake>) -> Result<()> {
+    helpers::require_staking_enabled()?;
+
     let stake_account = &ctx.accounts.stake_account;
     require!(stake_account.staked_amount > 0, VaultError::NothingStaked);
 

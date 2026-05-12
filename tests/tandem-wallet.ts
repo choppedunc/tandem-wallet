@@ -64,6 +64,8 @@ describe("tandem-wallet", () => {
   const SPENDING_LIMIT = new BN(50_000_000); // 50 USDC
   const INITIAL_VAULT_BALANCE = 1_000_000_000; // 1000 USDC
   const FEE_BPS = 25; // 0.25%
+  const STAKING_ENABLED = process.env.STAKING_ENABLED === "true";
+  const stakingIt = STAKING_ENABLED ? it : it.skip;
 
   before("Setup test environment", async () => {
     mintAuthority = Keypair.generate();
@@ -959,7 +961,38 @@ describe("tandem-wallet", () => {
     );
   });
 
-  it("Staker deposits TANDEM tokens", async () => {
+  it("Rejects staking when this deployment has staking disabled", async function () {
+    if (STAKING_ENABLED) {
+      this.skip();
+    }
+
+    const stakeAmount = new BN(500_000_000);
+
+    try {
+      await program.methods
+        .stake(stakeAmount)
+        .accounts({
+          staker: staker.publicKey,
+          protocolConfig,
+          stakeAccount: stakeAccountPda,
+          stakerTandemAta,
+          stakeTandemAta,
+          stakerRewardAta,
+          tandemMint,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .signers([staker])
+        .rpc();
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.error.errorCode.code).to.equal("StakingDisabled");
+    }
+  });
+
+  stakingIt("Staker deposits TANDEM tokens", async () => {
     const stakeAmount = new BN(500_000_000); // 500 TANDEM
 
     await program.methods
@@ -992,7 +1025,7 @@ describe("tandem-wallet", () => {
     expect(Number(stakerBalance.amount)).to.equal(500_000_000); // 500 left
   });
 
-  it("Staker stakes more (timer resets)", async () => {
+  stakingIt("Staker stakes more (timer resets)", async () => {
     const stakeAmount = new BN(200_000_000); // 200 more
 
     await program.methods
@@ -1020,7 +1053,7 @@ describe("tandem-wallet", () => {
     expect(config.totalStaked.toNumber()).to.equal(700_000_000);
   });
 
-  it("Unstake fails before 7-day lockup", async () => {
+  stakingIt("Unstake fails before 7-day lockup", async () => {
     try {
       await program.methods
         .unstake()
@@ -1043,7 +1076,7 @@ describe("tandem-wallet", () => {
     }
   });
 
-  it("Generate fees via send_usdc, then claim rewards", async () => {
+  stakingIt("Generate fees via send_usdc, then claim rewards", async () => {
     // Send 50 USDC to generate fees while staker is staked
     const amount = new BN(50_000_000);
     await program.methods
@@ -1088,7 +1121,7 @@ describe("tandem-wallet", () => {
     expect(stakeAccount.rewardsOwed.toNumber()).to.equal(0);
   });
 
-  it("No rewards to claim after just claiming", async () => {
+  stakingIt("No rewards to claim after just claiming", async () => {
     try {
       await program.methods
         .claimRewards()
@@ -1108,7 +1141,7 @@ describe("tandem-wallet", () => {
     }
   });
 
-  it("Rejects reward claims to non-canonical staker USDC token accounts", async () => {
+  stakingIt("Rejects reward claims to non-canonical staker USDC token accounts", async () => {
     const nonAtaStakerUsdc = await createAccount(
       provider.connection,
       mintAuthority,

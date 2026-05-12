@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { getProgram } from "@/lib/program";
 import {
@@ -13,13 +14,23 @@ import {
 import { CreateVaultForm } from "./CreateVaultForm";
 import { VaultDetail, type VaultData } from "./VaultDetail";
 
+const WalletMultiButton = dynamic(
+  async () =>
+    (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
+  { ssr: false }
+);
+
 export function Dashboard() {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
   const [vaults, setVaults] = useState<VaultData[] | null>(null);
   const [vaultNames, setVaultNames] = useState<Record<string, string>>({});
-  const [vaultCreatedOrder, setVaultCreatedOrder] = useState<Record<string, number>>({});
-  const [selectedVaultAddress, setSelectedVaultAddress] = useState<string | null>(null);
+  const [vaultCreatedOrder, setVaultCreatedOrder] = useState<
+    Record<string, number>
+  >({});
+  const [selectedVaultAddress, setSelectedVaultAddress] = useState<
+    string | null
+  >(null);
   const [showCreateVault, setShowCreateVault] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,7 +80,10 @@ export function Dashboard() {
 
       setVaults(ordered);
       setSelectedVaultAddress((current) => {
-        if (current && ordered.some((vault) => vault.address.toBase58() === current)) {
+        if (
+          current &&
+          ordered.some((vault) => vault.address.toBase58() === current)
+        ) {
           return current;
         }
         return ordered[0]?.address.toBase58() ?? null;
@@ -100,8 +114,14 @@ export function Dashboard() {
           Connect your wallet
         </h1>
         <p className="text-muted max-w-md mx-auto">
-          Connect a Solana wallet to view, create, and govern your Tandem Wallet vault.
+          Connect a Solana wallet to view, create, and govern your Tandem Wallet
+          vault.
         </p>
+        <div className="mt-6 flex justify-center">
+          <div className="site-wallet-button">
+            <WalletMultiButton />
+          </div>
+        </div>
       </div>
     );
   }
@@ -142,7 +162,8 @@ export function Dashboard() {
   }
 
   const selectedVault =
-    vaults.find((vault) => vault.address.toBase58() === selectedVaultAddress) ?? vaults[0];
+    vaults.find((vault) => vault.address.toBase58() === selectedVaultAddress) ??
+    vaults[0];
 
   return (
     <div className="space-y-6">
@@ -168,7 +189,9 @@ export function Dashboard() {
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {vaults.map((vault) => {
                 const address = vault.address.toBase58();
-                const selected = !showCreateVault && address === selectedVault.address.toBase58();
+                const selected =
+                  !showCreateVault &&
+                  address === selectedVault.address.toBase58();
                 return (
                   <button
                     key={address}
