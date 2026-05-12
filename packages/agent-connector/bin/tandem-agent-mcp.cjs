@@ -33,7 +33,7 @@ const tools = [
   ),
   tool(
     "send_usdc",
-    "Send USDC from the vault within the configured allowance. Fails if above allowance.",
+    "Send USDC from the vault within the configured allowance. Creates the recipient USDC associated token account when needed. Fails if above allowance.",
     {
       vault: {
         type: "string",

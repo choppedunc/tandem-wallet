@@ -91,7 +91,7 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
   const packageSetupCommand = useMemo(
     () =>
       [
-        "npx @tandemwallet/agent setup",
+        "npx -y @tandemwallet/agent@latest setup",
         `--vault ${vaultAddress}`,
         `--agent-keypair ${defaultAgentKeypairPath}`,
         `--rpc-url ${RPC_URL}`,
@@ -119,7 +119,7 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
           mcpServers: {
             "tandem-wallet": {
               command: "npx",
-              args: ["@tandemwallet/agent", "mcp"],
+              args: ["-y", "@tandemwallet/agent@latest", "mcp"],
               env: {
                 TANDEM_AGENT_CONFIG: defaultConfigPath,
               },
@@ -139,6 +139,7 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
         "Call get_vault_state before payment attempts.",
         "Use send_usdc for payments within allowance.",
         "Use create_proposal for payments above allowance.",
+        "The agent wallet needs a small SOL balance for transaction fees.",
         "Never ask for, print, or reveal private keys.",
       ].join(" "),
     [vaultAddress]
@@ -233,11 +234,11 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
           </div>
           <div className="border border-line-soft p-4">
             <p className="mb-2 font-display text-sm font-bold text-text">
-              Human approval remains
+              Fund agent gas
             </p>
             <p className="text-sm text-muted">
-              Above-limit payments become proposals for human review and
-              signing.
+              The agent wallet needs a small SOL balance for fees and recipient
+              token account creation.
             </p>
           </div>
         </div>

@@ -1,6 +1,7 @@
 const anchor = require("@coral-xyz/anchor");
 const {
   TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddressSync,
 } = require("@solana/spl-token");
 const {
@@ -271,11 +272,17 @@ class TandemAgentClient {
       recipientWallet
     );
     const recipientAtaInfo = await this.connection.getAccountInfo(recipientAta);
-    if (!recipientAtaInfo) {
-      throw new Error(
-        `Recipient USDC associated token account does not exist: ${recipientAta.toBase58()}`
-      );
-    }
+    const createdRecipientAta = !recipientAtaInfo;
+    const preInstructions = createdRecipientAta
+      ? [
+          createAssociatedTokenAccountInstruction(
+            this.agentKeypair.publicKey,
+            recipientAta,
+            recipientWallet,
+            vaultAccount.usdcMint
+          ),
+        ]
+      : [];
 
     let whitelistEntry = null;
     if (allowWhitelisted) {
@@ -316,6 +323,7 @@ class TandemAgentClient {
         treasuryAta: config.treasuryAta,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
+      .preInstructions(preInstructions)
       .signers([this.agentKeypair])
       .rpc();
 
@@ -327,6 +335,7 @@ class TandemAgentClient {
       amountRaw: amountRaw.toString(),
       amountUsdc: formatUsdc(amountRaw),
       usedWhitelist: Boolean(whitelistEntry),
+      createdRecipientAta,
     };
   }
 

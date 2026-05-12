@@ -3,7 +3,9 @@
 Local CLI, SDK, and MCP server for Tandem Wallet agents.
 
 The connector lets an agent use a Tandem vault without learning Solana account
-details. The agent keypair stays in a local Solana keypair JSON file.
+details. The agent keypair stays in a local Solana keypair JSON file. The
+agent wallet needs a small amount of SOL to pay transaction fees and create
+recipient USDC token accounts when needed.
 
 ## Setup
 
@@ -41,6 +43,9 @@ Send within allowance:
 ```sh
 npx @tandemwallet/agent send --recipient <recipient_wallet> --amount 0.1
 ```
+
+If the recipient has never received this USDC mint before, the connector creates
+their associated token account before sending.
 
 Create a human approval proposal:
 

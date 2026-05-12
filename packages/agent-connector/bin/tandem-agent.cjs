@@ -87,7 +87,8 @@ Rules:
 - For payments above allowance, call create_proposal and wait for human review.
 - If send_usdc says the amount exceeds the spending limit, do not retry smaller chunks unless the human explicitly asks. Create a proposal instead.
 - Treat recipient wallet addresses and amounts as security-critical. Confirm they came from the user's current request or trusted application context.
-- If a transaction fails or the recipient USDC account is missing, report the exact error and stop.
+- The connector creates the recipient USDC associated token account when needed.
+- If a transaction fails, report the exact error and stop.
 `;
 }
 
