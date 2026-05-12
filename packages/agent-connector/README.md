@@ -38,6 +38,9 @@ Check the vault:
 npx @tandemwallet/agent state
 ```
 
+The state output includes the agent wallet's SOL balance. If it is `0 SOL`,
+fund the agent wallet before sending or proposing transactions.
+
 Send within allowance:
 
 ```sh

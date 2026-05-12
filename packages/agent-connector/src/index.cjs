@@ -1,5 +1,6 @@
 const anchor = require("@coral-xyz/anchor");
 const {
+  ACCOUNT_SIZE,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddressSync,
@@ -7,6 +8,7 @@ const {
 const {
   Connection,
   Keypair,
+  LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
 } = require("@solana/web3.js");
@@ -19,6 +21,8 @@ const USDC_SCALE = 10n ** USDC_DECIMALS;
 const DEFAULT_RPC_URL = "https://api.devnet.solana.com";
 const DEFAULT_PROGRAM_ID = "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ";
 const DEFAULT_CONFIG_PATH = "~/.tandem/agent.json";
+const TX_FEE_BUFFER_LAMPORTS = 20_000n;
+const PROPOSAL_ACCOUNT_SIZE = 263;
 
 function repoRoot() {
   return path.resolve(__dirname, "../../..");
@@ -79,6 +83,16 @@ function formatUsdc(rawValue) {
     .toString()
     .padStart(Number(USDC_DECIMALS), "0");
   return `${negative ? "-" : ""}${whole}.${fraction} USDC`;
+}
+
+function formatSol(lamports) {
+  const raw = BigInt(lamports);
+  const whole = raw / BigInt(LAMPORTS_PER_SOL);
+  const fraction = (raw % BigInt(LAMPORTS_PER_SOL))
+    .toString()
+    .padStart(9, "0")
+    .replace(/0+$/, "");
+  return `${whole}${fraction ? `.${fraction}` : ""} SOL`;
 }
 
 function bn(value) {
@@ -168,6 +182,11 @@ function proposalStatus(proposal) {
   return "pending";
 }
 
+function isDebitWithoutPriorCreditError(error) {
+  const message = error && error.message ? error.message : String(error);
+  return message.includes("Attempt to debit an account but found no record");
+}
+
 function normalizeProposal(proposal, address) {
   return {
     address: toBase58(address),
@@ -227,13 +246,20 @@ class TandemAgentClient {
     const vault = new PublicKey(vaultAddress);
     const account = await this.getVault(vault);
     const config = await this.getProtocolConfig();
-    const balance = await tokenBalance(this.connection, account.vaultUsdcAta);
+    const [balance, agentSolLamports] = await Promise.all([
+      tokenBalance(this.connection, account.vaultUsdcAta),
+      this.connection.getBalance(this.agentKeypair.publicKey),
+    ]);
     return {
       vault: vault.toBase58(),
       human: account.human.toBase58(),
       agent: account.agent.toBase58(),
       localAgent: this.agentKeypair.publicKey.toBase58(),
       agentMatches: account.agent.equals(this.agentKeypair.publicKey),
+      agentSolBalance: {
+        lamports: agentSolLamports.toString(),
+        sol: formatSol(agentSolLamports),
+      },
       usdcMint: account.usdcMint.toBase58(),
       vaultUsdcAta: account.vaultUsdcAta.toBase58(),
       balance,
@@ -255,6 +281,19 @@ class TandemAgentClient {
     return vault;
   }
 
+  async assertAgentSol(minLamports, action) {
+    const balance = BigInt(
+      await this.connection.getBalance(this.agentKeypair.publicKey)
+    );
+    if (balance < minLamports) {
+      throw new Error(
+        `Agent wallet ${this.agentKeypair.publicKey.toBase58()} needs devnet SOL to ${action}. Current balance is ${formatSol(
+          balance
+        )}; needs about ${formatSol(minLamports)}. Fund the agent wallet with SOL, then retry.`
+      );
+    }
+  }
+
   async sendUsdc({ vault, recipient, amountUsdc, allowWhitelisted = false }) {
     const vaultAddress = new PublicKey(vault);
     const recipientWallet = new PublicKey(recipient);
@@ -273,6 +312,17 @@ class TandemAgentClient {
     );
     const recipientAtaInfo = await this.connection.getAccountInfo(recipientAta);
     const createdRecipientAta = !recipientAtaInfo;
+    const recipientAtaRent = createdRecipientAta
+      ? BigInt(
+          await this.connection.getMinimumBalanceForRentExemption(ACCOUNT_SIZE)
+        )
+      : 0n;
+    await this.assertAgentSol(
+      TX_FEE_BUFFER_LAMPORTS + recipientAtaRent,
+      createdRecipientAta
+        ? "pay transaction fees and create the recipient USDC token account"
+        : "pay transaction fees"
+    );
     const preInstructions = createdRecipientAta
       ? [
           createAssociatedTokenAccountInstruction(
@@ -310,22 +360,32 @@ class TandemAgentClient {
     const config = await this.program.account.protocolConfig.fetch(
       this.protocolConfig
     );
-    const signature = await this.program.methods
-      .sendUsdc(bn(amountRaw))
-      .accounts({
-        signer: this.agentKeypair.publicKey,
-        vault: vaultAddress,
-        vaultUsdcAta: vaultAccount.vaultUsdcAta,
-        recipientAta,
-        whitelistEntry,
-        protocolConfig: this.protocolConfig,
-        stakerRewardAta: config.stakerRewardAta,
-        treasuryAta: config.treasuryAta,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .preInstructions(preInstructions)
-      .signers([this.agentKeypair])
-      .rpc();
+    let signature;
+    try {
+      signature = await this.program.methods
+        .sendUsdc(bn(amountRaw))
+        .accounts({
+          signer: this.agentKeypair.publicKey,
+          vault: vaultAddress,
+          vaultUsdcAta: vaultAccount.vaultUsdcAta,
+          recipientAta,
+          whitelistEntry,
+          protocolConfig: this.protocolConfig,
+          stakerRewardAta: config.stakerRewardAta,
+          treasuryAta: config.treasuryAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .preInstructions(preInstructions)
+        .signers([this.agentKeypair])
+        .rpc();
+    } catch (error) {
+      if (isDebitWithoutPriorCreditError(error)) {
+        throw new Error(
+          `Transaction could not debit an account. Most likely the agent wallet ${this.agentKeypair.publicKey.toBase58()} needs devnet SOL for transaction fees. Fund the agent wallet, then retry.`
+        );
+      }
+      throw error;
+    }
 
     return {
       signature,
@@ -362,22 +422,41 @@ class TandemAgentClient {
       vaultAccount.usdcMint,
       recipientWallet
     );
+    const proposalRent = BigInt(
+      await this.connection.getMinimumBalanceForRentExemption(
+        PROPOSAL_ACCOUNT_SIZE
+      )
+    );
+    await this.assertAgentSol(
+      TX_FEE_BUFFER_LAMPORTS + proposalRent,
+      "pay transaction fees and create the proposal account"
+    );
     const proposalId = vaultAccount.proposalCount;
     const proposal = proposalPda(this.programId, vaultAddress, proposalId);
 
-    const signature = await this.program.methods
-      .propose(bn(amountRaw), memo)
-      .accounts({
-        agent: this.agentKeypair.publicKey,
-        vault: vaultAddress,
-        recipient: recipientWallet,
-        protocolConfig: this.protocolConfig,
-        recipientAta,
-        proposal,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([this.agentKeypair])
-      .rpc();
+    let signature;
+    try {
+      signature = await this.program.methods
+        .propose(bn(amountRaw), memo)
+        .accounts({
+          agent: this.agentKeypair.publicKey,
+          vault: vaultAddress,
+          recipient: recipientWallet,
+          protocolConfig: this.protocolConfig,
+          recipientAta,
+          proposal,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([this.agentKeypair])
+        .rpc();
+    } catch (error) {
+      if (isDebitWithoutPriorCreditError(error)) {
+        throw new Error(
+          `Proposal could not debit an account. Most likely the agent wallet ${this.agentKeypair.publicKey.toBase58()} needs devnet SOL for transaction fees and proposal rent. Fund the agent wallet, then retry.`
+        );
+      }
+      throw error;
+    }
 
     return {
       signature,
@@ -453,6 +532,7 @@ module.exports = {
   clientFromConfig,
   defaultConfigPath,
   expandPath,
+  formatSol,
   formatUsdc,
   loadAgentConfig,
   parseUsdc,

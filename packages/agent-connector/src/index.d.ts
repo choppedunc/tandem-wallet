@@ -46,6 +46,7 @@ export function clientFromConfig(configPath?: string): {
 export function defaultConfigPath(): string;
 export function expandPath(filePath: string): string;
 export function formatUsdc(rawValue: bigint | string | number): string;
+export function formatSol(rawValue: bigint | string | number): string;
 export function loadAgentConfig(configPath?: string): TandemAgentConfig;
 export function parseUsdc(value: string): bigint;
 export function readKeypair(filePath: string): Keypair;
