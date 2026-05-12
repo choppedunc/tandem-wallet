@@ -91,13 +91,13 @@ jobs:
         run: cargo build-sbf --manifest-path programs/tandem-wallet/Cargo.toml --sbf-out-dir target/deploy
 
       - name: Test Anchor program with staking disabled
-        run: anchor test --skip-build --provider.cluster localnet
+        run: bash scripts/run-anchor-tests-ci.sh
 
       - name: Build SBF program with staking enabled
         run: cargo build-sbf --manifest-path programs/tandem-wallet/Cargo.toml --sbf-out-dir target/deploy --features staking-enabled
 
       - name: Test Anchor program with staking enabled
-        run: STAKING_ENABLED=true anchor test --skip-build --provider.cluster localnet
+        run: STAKING_ENABLED=true LEDGER_DIR=.anchor/test-ledger-staking bash scripts/run-anchor-tests-ci.sh
 
       - name: Restore default SBF program
         run: cargo build-sbf --manifest-path programs/tandem-wallet/Cargo.toml --sbf-out-dir target/deploy
