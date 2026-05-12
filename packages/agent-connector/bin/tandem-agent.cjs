@@ -4,6 +4,7 @@ const os = require("os");
 const path = require("path");
 const { PublicKey } = require("@solana/web3.js");
 const {
+  DEFAULT_APP_URL,
   DEFAULT_PROGRAM_ID,
   DEFAULT_RPC_URL,
   clientFromConfig,
@@ -20,10 +21,12 @@ function usage() {
   console.log(`Tandem Wallet Agent Connector
 
 Usage:
-  tandem-agent setup --vault <vault> --agent-keypair <path> [--rpc-url <url>] [--program-id <id>]
+  tandem-agent setup --vault <vault> --agent-keypair <path> [--rpc-url <url>] [--program-id <id>] [--app-url <url>]
   tandem-agent state [--config <path>]
   tandem-agent send --recipient <wallet> --amount <usdc> [--vault <vault>] [--config <path>]
   tandem-agent propose --recipient <wallet> --amount <usdc> [--memo <text>] [--vault <vault>] [--config <path>]
+  tandem-agent proposal --proposal <proposal_pda> [--config <path>]
+  tandem-agent proposal --proposal-id <id> [--vault <vault>] [--config <path>]
   tandem-agent proposals [--vault <vault>] [--limit <n>] [--config <path>]
   tandem-agent mcp [--config <path>]
 
@@ -69,7 +72,7 @@ function isInsideRepo(filePath) {
   );
 }
 
-function agentInstructions({ vault, rpcUrl, programId }) {
+function agentInstructions({ vault, rpcUrl, programId, appUrl }) {
   return `# Tandem Wallet Agent Instructions
 
 Use Tandem Wallet tools for USDC payments from this vault:
@@ -77,6 +80,7 @@ Use Tandem Wallet tools for USDC payments from this vault:
 - Vault: ${vault}
 - Program: ${programId}
 - RPC: ${rpcUrl}
+- App: ${appUrl}
 
 Rules:
 
@@ -84,7 +88,10 @@ Rules:
 - Never print, log, summarize, or expose private key material.
 - Before sending, call get_vault_state and check the vault is not paused.
 - For payments within allowance, call send_usdc.
-- For payments above allowance, call create_proposal and wait for human review.
+- For payments above allowance, call create_proposal, send the human the returned messageForHuman, and wait for human review.
+- Proposal messages must include amount, recipient wallet address, memo, status, and approvalUrl.
+- At the start of every new payment request, check any earlier proposal you believe is pending with get_proposal or list_proposals. Chain state is the source of truth, not chat memory.
+- After creating a proposal, call get_proposal or list_proposals before telling the human it is still pending. Do not assume it is still pending after the human has had time to review it.
 - If send_usdc says the amount exceeds the spending limit, do not retry smaller chunks unless the human explicitly asks. Create a proposal instead.
 - Treat recipient wallet addresses and amounts as security-critical. Confirm they came from the user's current request or trusted application context.
 - The connector creates the recipient USDC associated token account when needed.
@@ -108,6 +115,11 @@ async function setup(args) {
   const vault = assertPublicKey("vault", args.vault);
   const rpcUrl =
     args["rpc-url"] || process.env.NEXT_PUBLIC_RPC_URL || DEFAULT_RPC_URL;
+  const appUrl =
+    args["app-url"] ||
+    process.env.TANDEM_APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    DEFAULT_APP_URL;
   const programId = assertPublicKey(
     "program-id",
     args["program-id"] ||
@@ -137,6 +149,7 @@ async function setup(args) {
 
   const config = {
     rpcUrl,
+    appUrl,
     programId,
     vault,
     agentKeypairPath: expandedKeypairPath,
@@ -160,6 +173,7 @@ async function setup(args) {
         vault,
         programId,
         rpcUrl,
+        appUrl,
         mcpServer: mcpConfigSnippet(configPath),
       },
       null,
@@ -262,6 +276,26 @@ async function main() {
         await client.listProposals({
           vault,
           limit: Number(args.limit || 10),
+        }),
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  if (command === "proposal") {
+    if (!args.proposal && !args["proposal-id"]) {
+      throw new Error(
+        "proposal requires --proposal <proposal_pda> or --proposal-id <id>."
+      );
+    }
+    console.log(
+      JSON.stringify(
+        await client.getProposal({
+          vault,
+          proposal: args.proposal,
+          proposalId: args["proposal-id"],
         }),
         null,
         2

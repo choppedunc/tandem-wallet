@@ -3,6 +3,7 @@ import { Connection, Keypair } from "@solana/web3.js";
 export interface TandemAgentOptions {
   rpcUrl?: string;
   programId?: string;
+  appUrl?: string;
   agentKeypair?: Keypair;
   agentKeypairPath?: string;
   connection?: Connection;
@@ -11,6 +12,7 @@ export interface TandemAgentOptions {
 export interface TandemAgentConfig {
   rpcUrl: string;
   programId: string;
+  appUrl: string;
   vault?: string;
   agentKeypairPath: string;
   configPath?: string;
@@ -33,6 +35,11 @@ export class TandemAgentClient {
     amountUsdc: string;
     memo?: string;
   }): Promise<Record<string, unknown>>;
+  getProposal(args: {
+    vault?: string;
+    proposal?: string;
+    proposalId?: string | number | bigint;
+  }): Promise<Record<string, unknown>>;
   listProposals(args: {
     vault: string;
     limit?: number;
@@ -48,6 +55,12 @@ export function expandPath(filePath: string): string;
 export function formatUsdc(rawValue: bigint | string | number): string;
 export function formatSol(rawValue: bigint | string | number): string;
 export function loadAgentConfig(configPath?: string): TandemAgentConfig;
+export function normalizeAppUrl(value?: string): string;
 export function parseUsdc(value: string): bigint;
+export function proposalApprovalUrl(
+  appUrl: string,
+  vault: string,
+  proposal: string
+): string;
 export function readKeypair(filePath: string): Keypair;
 export function writePrivateJson(filePath: string, value: unknown): void;

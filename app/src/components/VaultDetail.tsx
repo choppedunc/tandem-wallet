@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { getAccount } from "@solana/spl-token";
@@ -25,7 +25,7 @@ export type VaultData = {
   proposalCount: BN;
 };
 
-type Tab =
+export type VaultTab =
   | "overview"
   | "proposals"
   | "history"
@@ -59,17 +59,32 @@ export function VaultDetail({
   vault,
   vaultName,
   onChange,
+  initialTab,
+  initialProposal,
 }: {
   vault: VaultData;
   vaultName?: string;
   onChange: () => void;
+  initialTab?: VaultTab;
+  initialProposal?: string | null;
 }) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<VaultTab>("overview");
   const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null);
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [pendingProposalCount, setPendingProposalCount] = useState(0);
+  const appliedInitialViewRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!initialTab) return;
+    const key = `${vault.address.toBase58()}:${initialTab}:${
+      initialProposal ?? ""
+    }`;
+    if (appliedInitialViewRef.current === key) return;
+    appliedInitialViewRef.current = key;
+    setTab(initialTab);
+  }, [initialProposal, initialTab, vault.address]);
 
   const refreshBalances = useCallback(async () => {
     try {
@@ -154,7 +169,7 @@ export function VaultDetail({
     onChange();
   }, [onChange, refreshPendingProposalCount]);
 
-  const tabs: { id: Tab; label: string; badge?: number }[] = useMemo(
+  const tabs: { id: VaultTab; label: string; badge?: number }[] = useMemo(
     () => [
       { id: "overview", label: "Overview" },
       { id: "proposals", label: "Proposals", badge: pendingProposalCount },
@@ -234,7 +249,11 @@ export function VaultDetail({
         />
       )}
       {tab === "proposals" && (
-        <ProposalsPanel vault={vault} onChange={handleChange} />
+        <ProposalsPanel
+          vault={vault}
+          onChange={handleChange}
+          initialProposal={initialProposal}
+        />
       )}
       {tab === "history" && <ProposalHistoryPanel vault={vault} />}
       {tab === "settings" && (

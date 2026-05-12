@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NETWORK, PROGRAM_ID, RPC_URL } from "@/lib/network";
 import { shortAddress } from "@/lib/format";
 import type { VaultData } from "./VaultDetail";
@@ -77,6 +77,11 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
   const programId = PROGRAM_ID.toBase58();
   const defaultAgentKeypairPath = "~/.tandem/agent-keypair.json";
   const defaultConfigPath = "~/.tandem/agent.json";
+  const [appUrl, setAppUrl] = useState("http://localhost:3000");
+
+  useEffect(() => {
+    setAppUrl(window.location.origin);
+  }, []);
 
   const placeKeypairCommand = useMemo(
     () =>
@@ -96,8 +101,9 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
         `--agent-keypair ${defaultAgentKeypairPath}`,
         `--rpc-url ${RPC_URL}`,
         `--program-id ${programId}`,
+        `--app-url ${appUrl}`,
       ].join(" "),
-    [programId, vaultAddress]
+    [appUrl, programId, vaultAddress]
   );
 
   const localRepoCommand = useMemo(
@@ -108,8 +114,9 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
         `--agent-keypair ${defaultAgentKeypairPath}`,
         `--rpc-url ${RPC_URL}`,
         `--program-id ${programId}`,
+        `--app-url ${appUrl}`,
       ].join(" "),
-    [programId, vaultAddress]
+    [appUrl, programId, vaultAddress]
   );
 
   const mcpConfig = useMemo(
@@ -139,6 +146,9 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
         "Call get_vault_state before payment attempts.",
         "Use send_usdc for payments within allowance.",
         "Use create_proposal for payments above allowance.",
+        "When create_proposal returns messageForHuman, send that to the human with the approval link.",
+        "At the start of every new payment request, check any earlier pending proposal with get_proposal or list_proposals.",
+        "Before saying a proposal is still pending, call get_proposal or list_proposals.",
         "The agent wallet needs a small SOL balance for transaction fees.",
         "Never ask for, print, or reveal private keys.",
       ].join(" "),
@@ -253,6 +263,7 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
           <DetailLine label="Agent" value={agentAddress} />
           <DetailLine label="Program" value={programId} />
           <DetailLine label="RPC" value={RPC_URL} />
+          <DetailLine label="App URL" value={appUrl} />
         </div>
 
         <div className="space-y-5">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { getProgram } from "@/lib/program";
@@ -12,13 +12,38 @@ import {
   saveVaultName,
 } from "@/lib/vaultNames";
 import { CreateVaultForm } from "./CreateVaultForm";
-import { VaultDetail, type VaultData } from "./VaultDetail";
+import { VaultDetail, type VaultData, type VaultTab } from "./VaultDetail";
 
 const WalletMultiButton = dynamic(
   async () =>
     (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
   { ssr: false }
 );
+
+const VAULT_TABS = new Set<VaultTab>([
+  "overview",
+  "proposals",
+  "history",
+  "settings",
+  "whitelist",
+  "agent",
+]);
+
+type DeepLinkState = {
+  vault: string | null;
+  tab: VaultTab | null;
+  proposal: string | null;
+};
+
+function readDeepLink(): DeepLinkState {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
+  return {
+    vault: params.get("vault"),
+    tab: tab && VAULT_TABS.has(tab as VaultTab) ? (tab as VaultTab) : null,
+    proposal: params.get("proposal"),
+  };
+}
 
 export function Dashboard() {
   const { connection } = useConnection();
@@ -32,8 +57,14 @@ export function Dashboard() {
     string | null
   >(null);
   const [showCreateVault, setShowCreateVault] = useState(false);
+  const [deepLink, setDeepLink] = useState<DeepLinkState>({
+    vault: null,
+    tab: null,
+    proposal: null,
+  });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const appliedDeepLinkVaultRef = useRef(false);
 
   const program = useMemo(
     () => (wallet ? getProgram(connection, wallet) : null),
@@ -43,6 +74,7 @@ export function Dashboard() {
   useEffect(() => {
     setVaultNames(loadVaultNames());
     setVaultCreatedOrder(loadVaultCreatedOrder());
+    setDeepLink(readDeepLink());
   }, []);
 
   const refresh = useCallback(async () => {
@@ -81,6 +113,14 @@ export function Dashboard() {
       setVaults(ordered);
       setSelectedVaultAddress((current) => {
         if (
+          deepLink.vault &&
+          !appliedDeepLinkVaultRef.current &&
+          ordered.some((vault) => vault.address.toBase58() === deepLink.vault)
+        ) {
+          appliedDeepLinkVaultRef.current = true;
+          return deepLink.vault;
+        }
+        if (
           current &&
           ordered.some((vault) => vault.address.toBase58() === current)
         ) {
@@ -93,7 +133,7 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [program, vaultCreatedOrder, wallet]);
+  }, [deepLink.vault, program, vaultCreatedOrder, wallet]);
 
   useEffect(() => {
     if (program && wallet) refresh();
@@ -237,6 +277,8 @@ export function Dashboard() {
             fallbackVaultName(selectedVault.address)
           }
           onChange={refresh}
+          initialTab={deepLink.tab ?? undefined}
+          initialProposal={deepLink.proposal}
         />
       )}
     </div>

@@ -57,7 +57,7 @@ const tools = [
   ),
   tool(
     "create_proposal",
-    "Create a human approval proposal for an above-allowance USDC payment.",
+    "Create a human approval proposal for an above-allowance USDC payment. Returns approvalUrl and messageForHuman to share with the human.",
     {
       vault: {
         type: "string",
@@ -77,6 +77,24 @@ const tools = [
       },
     },
     ["recipient", "amount_usdc"]
+  ),
+  tool(
+    "get_proposal",
+    "Fetch one proposal's current status. Use this before telling the human a proposal is still pending.",
+    {
+      vault: {
+        type: "string",
+        description: "Vault PDA. Defaults to configured vault.",
+      },
+      proposal: {
+        type: "string",
+        description: "Proposal PDA.",
+      },
+      proposal_id: {
+        type: "string",
+        description: "Numeric proposal id. Requires vault.",
+      },
+    }
   ),
   tool("list_proposals", "List recent proposals for the configured vault.", {
     vault: {
@@ -137,6 +155,15 @@ async function callTool(name, args = {}) {
         recipient: args.recipient,
         amountUsdc: args.amount_usdc,
         memo: args.memo || "Tandem Wallet agent request",
+      })
+    );
+  }
+  if (name === "get_proposal") {
+    return textResult(
+      await client.getProposal({
+        vault: args.vault || config.vault,
+        proposal: args.proposal,
+        proposalId: args.proposal_id,
       })
     );
   }

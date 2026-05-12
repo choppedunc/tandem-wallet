@@ -21,6 +21,7 @@ const USDC_SCALE = 10n ** USDC_DECIMALS;
 const DEFAULT_RPC_URL = "https://api.devnet.solana.com";
 const DEFAULT_PROGRAM_ID = "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ";
 const DEFAULT_CONFIG_PATH = "~/.tandem/agent.json";
+const DEFAULT_APP_URL = "http://localhost:3000";
 const TX_FEE_BUFFER_LAMPORTS = 20_000n;
 const PROPOSAL_ACCOUNT_SIZE = 263;
 
@@ -105,6 +106,40 @@ function toBase58(value) {
     : new PublicKey(value).toBase58();
 }
 
+function normalizeAppUrl(value = DEFAULT_APP_URL) {
+  const trimmed = String(value || DEFAULT_APP_URL).trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed.replace(/\/+$/, "");
+  const host = trimmed.split("/")[0];
+  const scheme =
+    host === "localhost" ||
+    host.startsWith("localhost:") ||
+    host.startsWith("127.") ||
+    host.startsWith("[::1]")
+      ? "http"
+      : "https";
+  const withProtocol = `${scheme}://${trimmed}`;
+  return withProtocol.replace(/\/+$/, "");
+}
+
+function proposalApprovalUrl(appUrl, vault, proposal) {
+  const url = new URL(normalizeAppUrl(appUrl));
+  url.searchParams.set("vault", toBase58(vault));
+  url.searchParams.set("tab", "proposals");
+  url.searchParams.set("proposal", toBase58(proposal));
+  return url.toString();
+}
+
+function proposalHumanMessage({ amountUsdc, recipient, memo, status, approvalUrl }) {
+  return [
+    "Proposal made",
+    `Amount: ${amountUsdc}`,
+    `Recipient: ${recipient}`,
+    `Memo: ${memo || "No memo supplied"}`,
+    `Status: ${status}`,
+    `Review: ${approvalUrl}`,
+  ].join("\n");
+}
+
 function protocolConfigPda(programId) {
   const [pda] = PublicKey.findProgramAddressSync(
     [Buffer.from("protocol_config")],
@@ -187,8 +222,8 @@ function isDebitWithoutPriorCreditError(error) {
   return message.includes("Attempt to debit an account but found no record");
 }
 
-function normalizeProposal(proposal, address) {
-  return {
+function normalizeProposal(proposal, address, appUrl) {
+  const normalized = {
     address: toBase58(address),
     vault: proposal.vault.toBase58(),
     proposalId: proposal.proposalId.toString(),
@@ -202,6 +237,10 @@ function normalizeProposal(proposal, address) {
     status: proposalStatus(proposal),
     memo: proposal.memo,
   };
+  if (appUrl) {
+    normalized.approvalUrl = proposalApprovalUrl(appUrl, proposal.vault, address);
+  }
+  return normalized;
 }
 
 class TandemAgentClient {
@@ -209,6 +248,7 @@ class TandemAgentClient {
     const agentKeypair =
       options.agentKeypair || readKeypair(options.agentKeypairPath);
     this.rpcUrl = options.rpcUrl || DEFAULT_RPC_URL;
+    this.appUrl = normalizeAppUrl(options.appUrl || DEFAULT_APP_URL);
     this.programId = new PublicKey(options.programId || DEFAULT_PROGRAM_ID);
     this.agentKeypair = agentKeypair;
     this.connection =
@@ -219,6 +259,10 @@ class TandemAgentClient {
       programId: this.programId,
     });
     this.protocolConfig = protocolConfigPda(this.programId);
+  }
+
+  proposalApprovalUrl(vault, proposal) {
+    return proposalApprovalUrl(this.appUrl, vault, proposal);
   }
 
   async getProtocolConfig() {
@@ -458,6 +502,10 @@ class TandemAgentClient {
       throw error;
     }
 
+    const status = "pending";
+    const amountFormatted = formatUsdc(amountRaw);
+    const approvalUrl = this.proposalApprovalUrl(vaultAddress, proposal);
+
     return {
       signature,
       vault: vaultAddress.toBase58(),
@@ -466,9 +514,54 @@ class TandemAgentClient {
       recipient: recipientWallet.toBase58(),
       recipientAta: recipientAta.toBase58(),
       amountRaw: amountRaw.toString(),
-      amountUsdc: formatUsdc(amountRaw),
+      amountUsdc: amountFormatted,
       memo,
+      status,
+      approvalUrl,
+      statusCheckCommand: `npx -y @tandemwallet/agent@latest proposal --proposal ${proposal.toBase58()}`,
+      messageForHuman: proposalHumanMessage({
+        amountUsdc: amountFormatted,
+        recipient: recipientWallet.toBase58(),
+        memo,
+        status,
+        approvalUrl,
+      }),
     };
+  }
+
+  async getProposal({ vault, proposal, proposalId }) {
+    let address;
+    if (proposal) {
+      address = new PublicKey(proposal);
+    } else {
+      if (!vault) {
+        throw new Error(
+          "Vault is required when looking up a proposal by proposalId."
+        );
+      }
+      if (proposalId === undefined || proposalId === null) {
+        throw new Error("Pass proposal or proposalId.");
+      }
+      address = proposalPda(
+        this.programId,
+        new PublicKey(vault),
+        BigInt(proposalId)
+      );
+    }
+
+    try {
+      const account = await this.program.account.proposal.fetch(address);
+      return normalizeProposal(account, address, this.appUrl);
+    } catch {
+      const result = {
+        address: address.toBase58(),
+        status: "missing-or-closed",
+      };
+      if (vault) {
+        result.approvalUrl = this.proposalApprovalUrl(vault, address);
+      }
+      return result;
+    }
   }
 
   async listProposals({ vault, limit = 10 }) {
@@ -485,7 +578,7 @@ class TandemAgentClient {
       const address = proposalPda(this.programId, vaultAddress, proposalId);
       try {
         const proposal = await this.program.account.proposal.fetch(address);
-        proposals.push(normalizeProposal(proposal, address));
+        proposals.push(normalizeProposal(proposal, address, this.appUrl));
       } catch {
         proposals.push({
           address: address.toBase58(),
@@ -508,6 +601,7 @@ function loadAgentConfig(configPath = defaultConfigPath()) {
   return {
     rpcUrl: config.rpcUrl || DEFAULT_RPC_URL,
     programId: config.programId || DEFAULT_PROGRAM_ID,
+    appUrl: config.appUrl || DEFAULT_APP_URL,
     vault: config.vault,
     agentKeypairPath: config.agentKeypairPath,
     configPath: expandPath(configPath),
@@ -525,6 +619,7 @@ function clientFromConfig(configPath = defaultConfigPath()) {
 }
 
 module.exports = {
+  DEFAULT_APP_URL,
   DEFAULT_CONFIG_PATH,
   DEFAULT_PROGRAM_ID,
   DEFAULT_RPC_URL,
@@ -535,7 +630,9 @@ module.exports = {
   formatSol,
   formatUsdc,
   loadAgentConfig,
+  normalizeAppUrl,
   parseUsdc,
+  proposalApprovalUrl,
   readKeypair,
   writePrivateJson,
 };

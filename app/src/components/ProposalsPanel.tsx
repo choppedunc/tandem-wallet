@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey, Transaction } from "@solana/web3.js";
 import {
@@ -170,9 +170,11 @@ function Metric({
 export function ProposalsPanel({
   vault,
   onChange,
+  initialProposal,
 }: {
   vault: VaultData;
   onChange: () => void;
+  initialProposal?: string | null;
 }) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
@@ -185,6 +187,7 @@ export function ProposalsPanel({
   const [error, setError] = useState<string | null>(null);
   const [lastTransaction, setLastTransaction] = useState<LastTransaction | null>(null);
   const [reviewAction, setReviewAction] = useState<ReviewAction | null>(null);
+  const appliedInitialProposalRef = useRef<string | null>(null);
 
   const program = useMemo(
     () => (wallet ? getProgram(connection, wallet) : null),
@@ -267,10 +270,24 @@ export function ProposalsPanel({
       setSelectedProposalKey(null);
       return;
     }
+    const initialProposalKey = initialProposal ?? null;
+    const initialViewKey = initialProposalKey
+      ? `${vault.address.toBase58()}:${initialProposalKey}`
+      : null;
+    if (
+      initialProposalKey &&
+      initialViewKey &&
+      appliedInitialProposalRef.current !== initialViewKey &&
+      visible.some((p) => p.pda.toBase58() === initialProposalKey)
+    ) {
+      appliedInitialProposalRef.current = initialViewKey;
+      setSelectedProposalKey(initialProposalKey);
+      return;
+    }
     if (!selectedProposalKey || !visible.some((p) => p.pda.toBase58() === selectedProposalKey)) {
       setSelectedProposalKey(visible[0].pda.toBase58());
     }
-  }, [selectedProposalKey, visible]);
+  }, [initialProposal, selectedProposalKey, vault.address, visible]);
 
   const selectedProposal =
     visible.find((proposal) => proposal.pda.toBase58() === selectedProposalKey) ??
