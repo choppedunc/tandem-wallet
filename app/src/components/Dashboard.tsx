@@ -297,10 +297,10 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setShowCreateVault((visible) => !visible)}
-                className={`border px-3 py-2 text-xs font-display font-bold uppercase tracking-[0.14em] transition-colors ${
+                className={`px-3 py-2 text-xs font-display font-bold uppercase tracking-[0.14em] ${
                   showCreateVault
-                    ? "border-line text-text bg-[rgba(10,186,181,0.08)]"
-                    : "border-line-soft text-[#032b2a] bg-[linear-gradient(135deg,#0abab5,#6de7e3)] hover:border-line"
+                    ? "border border-line text-text bg-[rgba(10,186,181,0.08)] transition-colors hover:bg-[rgba(10,186,181,0.12)]"
+                    : "brackets-accent text-[#032b2a]"
                 }`}
               >
                 {showCreateVault ? "Cancel create" : "+ Create vault"}
