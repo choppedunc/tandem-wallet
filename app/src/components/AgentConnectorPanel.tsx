@@ -261,40 +261,6 @@ export function AgentConnectorPanel({
         </section>
       )}
 
-      <section className="brackets p-6">
-        <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
-          Agent safety
-        </p>
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="border border-line-soft p-4">
-            <p className="mb-2 font-display text-sm font-bold text-text">
-              Keep the key local
-            </p>
-            <p className="text-sm text-muted">
-              Do not paste mainnet private keys into chats, prompts, or repo
-              files.
-            </p>
-          </div>
-          <div className="border border-line-soft p-4">
-            <p className="mb-2 font-display text-sm font-bold text-text">
-              Allowance still matters
-            </p>
-            <p className="text-sm text-muted">
-              The agent signer can spend within the current vault policy limits.
-            </p>
-          </div>
-          <div className="border border-line-soft p-4">
-            <p className="mb-2 font-display text-sm font-bold text-text">
-              Fund agent gas
-            </p>
-            <p className="text-sm text-muted">
-              The agent wallet needs a small SOL balance for fees and recipient
-              token account creation.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {commandCopied && (
         <section className="brackets p-6">
           <p className="mb-4 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
@@ -367,6 +333,40 @@ export function AgentConnectorPanel({
               />
             </div>
           </details>
+        </div>
+      </section>
+
+      <section className="brackets p-6">
+        <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
+          Agent safety
+        </p>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="border border-line-soft p-4">
+            <p className="mb-2 font-display text-sm font-bold text-text">
+              Keep the key local
+            </p>
+            <p className="text-sm text-muted">
+              Do not paste mainnet private keys into chats, prompts, or repo
+              files.
+            </p>
+          </div>
+          <div className="border border-line-soft p-4">
+            <p className="mb-2 font-display text-sm font-bold text-text">
+              Allowance still matters
+            </p>
+            <p className="text-sm text-muted">
+              The agent signer can spend within the current vault policy limits.
+            </p>
+          </div>
+          <div className="border border-line-soft p-4">
+            <p className="mb-2 font-display text-sm font-bold text-text">
+              Fund agent gas
+            </p>
+            <p className="text-sm text-muted">
+              The agent wallet needs a small SOL balance for fees and recipient
+              token account creation.
+            </p>
+          </div>
         </div>
       </section>
     </div>
