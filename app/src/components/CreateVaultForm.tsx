@@ -374,8 +374,11 @@ export function CreateVaultForm({
                         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-soft pt-4">
                           <p className="text-xs text-muted">
                             Use raw JSON only if your agent cannot receive file
-                            uploads. Save the copied text as the exact JSON file
-                            named above.
+                            uploads. Save the copied text as{" "}
+                            <code className="break-all font-display text-text">
+                              {generatedKeypairFileName}
+                            </code>
+                            .
                           </p>
                           <CopyButton
                             value={generatedKeypairJson}
