@@ -24,7 +24,6 @@ const VAULT_TABS = new Set<VaultTab>([
   "overview",
   "proposals",
   "history",
-  "settings",
   "whitelist",
   "agent",
 ]);
