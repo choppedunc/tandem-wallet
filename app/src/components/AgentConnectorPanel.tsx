@@ -183,10 +183,18 @@ export function AgentConnectorPanel({
         </div>
 
         <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted">
-          Give your agent the downloaded Tandem keypair file, then run this
-          setup command in the agent environment. Setup verifies the keypair
-          against this vault and uses the file wherever the agent saved it.
+          Run this setup command in the agent environment. Setup finds the
+          agent keypair file, verifies it matches this vault, and imports the
+          vault details for future payments.
         </p>
+
+        <div className="mb-5 border border-line-soft bg-[rgba(2,10,12,0.52)] p-4 text-sm leading-relaxed text-muted">
+          If Tandem generated the agent wallet, give your agent the downloaded
+          Tandem keypair file first. If you pasted an existing agent wallet,
+          your agent needs that wallet&apos;s matching Solana keypair file. If
+          the wallet is managed by a platform and your agent cannot access the
+          keypair, create a new Tandem agent wallet instead.
+        </div>
 
         {needsAgentSolTopUp && (
           <div className="mb-4 flex items-start gap-3 border border-line-soft bg-[rgba(58,23,25,0.42)] p-3">

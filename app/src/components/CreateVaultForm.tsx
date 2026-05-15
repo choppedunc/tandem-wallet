@@ -260,6 +260,11 @@ export function CreateVaultForm({
           <label className="block text-xs uppercase tracking-[0.14em] text-muted font-display mb-3">
             Agent
           </label>
+          <p className="mb-3 max-w-2xl text-xs leading-relaxed text-muted">
+            Generate a new Tandem agent wallet, or paste an existing agent
+            wallet public key. Existing wallets work only if your agent can
+            sign with the matching Solana keypair file during setup.
+          </p>
           <div className="flex gap-2 mb-3">
             <button
               type="button"
@@ -374,13 +379,21 @@ export function CreateVaultForm({
               )}
             </div>
           ) : (
-            <input
-              type="text"
-              value={agentPubkeyInput}
-              onChange={(e) => setAgentPubkeyInput(e.target.value)}
-              placeholder="Agent public key (base58)"
-              className="w-full px-3 py-2.5 border border-line-soft bg-[rgba(2,10,12,0.7)] text-text font-display text-sm focus:outline-none focus:border-line"
-            />
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={agentPubkeyInput}
+                onChange={(e) => setAgentPubkeyInput(e.target.value)}
+                placeholder="Agent public key (base58)"
+                className="w-full px-3 py-2.5 border border-line-soft bg-[rgba(2,10,12,0.7)] text-text font-display text-sm focus:outline-none focus:border-line"
+              />
+              <div className="border border-line-soft bg-[rgba(2,10,12,0.52)] p-3 text-xs leading-relaxed text-muted">
+                Use this if your agent already controls a Solana wallet and
+                can access its matching keypair file. If the wallet is managed
+                by a platform and your agent cannot access that keypair,
+                generate a new Tandem keypair instead.
+              </div>
+            </div>
           )}
         </div>
 
