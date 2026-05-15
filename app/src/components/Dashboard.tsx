@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
+import type { Connection, PublicKey } from "@solana/web3.js";
 import { getProgram } from "@/lib/program";
 import {
   fallbackVaultName,
@@ -35,6 +36,9 @@ type DeepLinkState = {
   proposal: string | null;
 };
 
+const MAX_CREATION_SIGNATURE_PAGES = 3;
+const CREATION_SIGNATURE_PAGE_SIZE = 1000;
+
 function readDeepLink(): DeepLinkState {
   const params = new URLSearchParams(window.location.search);
   const tab = params.get("tab");
@@ -45,14 +49,40 @@ function readDeepLink(): DeepLinkState {
   };
 }
 
+async function discoverVaultCreatedAt(
+  connection: Connection,
+  address: PublicKey
+): Promise<number | null> {
+  try {
+    let before: string | undefined;
+    let oldestBlockTime: number | null = null;
+
+    for (let page = 0; page < MAX_CREATION_SIGNATURE_PAGES; page += 1) {
+      const signatures = await connection.getSignaturesForAddress(address, {
+        limit: CREATION_SIGNATURE_PAGE_SIZE,
+        before,
+      });
+
+      if (signatures.length === 0) break;
+
+      const oldestSignature = signatures[signatures.length - 1];
+      oldestBlockTime = oldestSignature.blockTime ?? oldestBlockTime;
+
+      if (signatures.length < CREATION_SIGNATURE_PAGE_SIZE) break;
+      before = oldestSignature.signature;
+    }
+
+    return oldestBlockTime ? oldestBlockTime * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
 export function Dashboard() {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
   const [vaults, setVaults] = useState<VaultData[] | null>(null);
   const [vaultNames, setVaultNames] = useState<Record<string, string>>({});
-  const [vaultCreatedOrder, setVaultCreatedOrder] = useState<
-    Record<string, number>
-  >({});
   const [selectedVaultAddress, setSelectedVaultAddress] = useState<
     string | null
   >(null);
@@ -74,7 +104,6 @@ export function Dashboard() {
 
   useEffect(() => {
     setVaultNames(loadVaultNames());
-    setVaultCreatedOrder(loadVaultCreatedOrder());
     setDeepLink(readDeepLink());
   }, []);
 
@@ -98,14 +127,29 @@ export function Dashboard() {
         paused: a.account.paused,
         proposalCount: a.account.proposalCount,
       }));
+
+      let orderForDisplay = loadVaultCreatedOrder();
+      const missingCreationTimes = mapped.filter(
+        (vault) => orderForDisplay[vault.address.toBase58()] === undefined
+      );
+
+      for (const vault of missingCreationTimes) {
+        const createdAt = await discoverVaultCreatedAt(connection, vault.address);
+        if (createdAt !== null) {
+          orderForDisplay = saveVaultCreatedAt(vault.address, createdAt);
+        }
+      }
+
+      setVaultNames(loadVaultNames());
+
       const ordered = mapped
         .map((vault, index) => ({ vault, index }))
         .sort((a, b) => {
-          const aCreatedAt = vaultCreatedOrder[a.vault.address.toBase58()];
-          const bCreatedAt = vaultCreatedOrder[b.vault.address.toBase58()];
+          const aCreatedAt = orderForDisplay[a.vault.address.toBase58()];
+          const bCreatedAt = orderForDisplay[b.vault.address.toBase58()];
 
           if (aCreatedAt !== undefined && bCreatedAt !== undefined) {
-            return aCreatedAt - bCreatedAt;
+            return bCreatedAt - aCreatedAt;
           }
           if (aCreatedAt !== undefined) return -1;
           if (bCreatedAt !== undefined) return 1;
@@ -137,7 +181,7 @@ export function Dashboard() {
       refreshInFlightRef.current = false;
       setLoading(false);
     }
-  }, [deepLink.vault, program, vaultCreatedOrder, wallet]);
+  }, [connection, deepLink.vault, program, wallet]);
 
   useEffect(() => {
     if (program && wallet) refresh();
@@ -197,7 +241,7 @@ export function Dashboard() {
       <CreateVaultForm
         onCreated={(vault, name) => {
           setVaultNames(saveVaultName(vault, name));
-          setVaultCreatedOrder(saveVaultCreatedAt(vault));
+          saveVaultCreatedAt(vault);
           setSelectedVaultAddress(vault.toBase58());
           refresh();
         }}
@@ -267,7 +311,7 @@ export function Dashboard() {
         <CreateVaultForm
           onCreated={(vault, name) => {
             setVaultNames(saveVaultName(vault, name));
-            setVaultCreatedOrder(saveVaultCreatedAt(vault));
+            saveVaultCreatedAt(vault);
             setSelectedVaultAddress(vault.toBase58());
             setShowCreateVault(false);
             refresh();
