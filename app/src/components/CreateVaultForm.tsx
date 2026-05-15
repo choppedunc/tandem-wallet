@@ -322,9 +322,6 @@ export function CreateVaultForm({
                           store it somewhere your agent can access. Tandem
                           setup will find, verify, and import it.
                         </p>
-                        <div className="mt-2 break-all font-display text-[0.68rem] text-text">
-                          {generatedKeypairFileName}
-                        </div>
                       </div>
                       <DownloadKeypairButton
                         value={generatedKeypairJson}
@@ -339,47 +336,56 @@ export function CreateVaultForm({
                     </p>
                   </div>
                   <div>
-                    <div className="mb-1.5 flex items-center justify-between gap-3">
-                      <div className="text-xs uppercase tracking-[0.14em] text-accent-2 font-display">
-                        Public key
-                      </div>
-                      <CopyButton value={generatedPubkey} label="Copy" />
-                    </div>
-                    <code className="block text-xs break-all font-display text-text">
-                      {generatedPubkey}
-                    </code>
-                  </div>
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between gap-3">
-                      <div className="text-xs uppercase tracking-[0.14em] text-accent font-display">
-                        Private key (base58)
-                      </div>
-                      <CopyButton value={generatedSecret} label="Copy" />
-                    </div>
-                    <code className="block text-xs break-all font-display text-text">
-                      {generatedSecret}
-                    </code>
-                    <p className="mt-2 text-xs text-muted">
-                      Keep this as a backup, and keep all private key formats
-                      out of repos and chats.
-                    </p>
-                  </div>
-                  <div>
                     <details className="mt-3 border border-line-soft p-3">
                       <summary className="cursor-pointer font-display text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted">
-                        Advanced: copy raw JSON
+                        Advanced: backup keys
                       </summary>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="mt-3 space-y-4">
+                        <div>
+                          <div className="mb-1.5 text-xs uppercase tracking-[0.14em] text-accent font-display">
+                            Downloaded file name
+                          </div>
+                          <code className="block break-all font-display text-xs text-text">
+                            {generatedKeypairFileName}
+                          </code>
+                        </div>
+                        <div>
+                          <div className="mb-1.5 flex items-center justify-between gap-3">
+                            <div className="text-xs uppercase tracking-[0.14em] text-accent-2 font-display">
+                              Public key
+                            </div>
+                            <CopyButton value={generatedPubkey} label="Copy" />
+                          </div>
+                          <code className="block text-xs break-all font-display text-text">
+                            {generatedPubkey}
+                          </code>
+                        </div>
+                        <div>
+                          <div className="mb-1.5 flex items-center justify-between gap-3">
+                            <div className="text-xs uppercase tracking-[0.14em] text-accent font-display">
+                              Private key (base58)
+                            </div>
+                            <CopyButton value={generatedSecret} label="Copy" />
+                          </div>
+                          <code className="block text-xs break-all font-display text-text">
+                            {generatedSecret}
+                          </code>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-soft pt-4">
+                          <p className="text-xs text-muted">
+                            Use raw JSON only if your agent cannot receive file
+                            uploads. Save the copied text as the exact JSON file
+                            named above.
+                          </p>
+                          <CopyButton
+                            value={generatedKeypairJson}
+                            label="Copy JSON"
+                            onCopy={() => setGeneratedKeypairSaved(true)}
+                          />
+                        </div>
                         <p className="text-xs text-muted">
-                          Use this only if your agent cannot receive file
-                          uploads. Save the copied text as the exact JSON file
-                          named above.
+                          Keep all private key formats out of repos and chats.
                         </p>
-                        <CopyButton
-                          value={generatedKeypairJson}
-                          label="Copy JSON"
-                          onCopy={() => setGeneratedKeypairSaved(true)}
-                        />
                       </div>
                     </details>
                   </div>
