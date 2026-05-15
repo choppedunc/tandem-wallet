@@ -278,7 +278,7 @@ export function CreateVaultForm({
                   : "border-line-soft text-muted hover:text-text"
               }`}
             >
-              <span>Generate keypair</span>
+              <span>Generate Keypair</span>
               <span className="border border-line-soft bg-[rgba(10,186,181,0.12)] px-2 py-0.5 text-[0.55rem] tracking-[0.14em] text-accent-2">
                 Recommended
               </span>
@@ -401,7 +401,7 @@ export function CreateVaultForm({
                   Only paste a public key if your agent already controls that
                   Solana wallet and can access its matching keypair file. If
                   the wallet is managed by a platform and your agent cannot
-                  access that keypair, use Generate keypair instead.
+                  access that keypair, use Generate Keypair instead.
                 </p>
               </div>
             </div>
