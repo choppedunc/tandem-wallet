@@ -265,20 +265,23 @@ export function CreateVaultForm({
             wallet public key. Existing wallets work only if your agent can
             sign with the matching Solana keypair file during setup.
           </p>
-          <div className="flex gap-2 mb-3">
+          <div className="mb-3 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => {
                 setAgentMode("generate");
                 setAgentPubkeyInput("");
               }}
-              className={`px-3 py-2 text-sm font-display uppercase tracking-wider border ${
+              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-display uppercase tracking-wider border ${
                 agentMode === "generate"
                   ? "border-line text-text bg-[rgba(10,186,181,0.08)]"
                   : "border-line-soft text-muted hover:text-text"
               }`}
             >
-              Generate keypair
+              <span>Generate keypair</span>
+              <span className="border border-line-soft bg-[rgba(10,186,181,0.12)] px-2 py-0.5 text-[0.55rem] tracking-[0.14em] text-accent-2">
+                Recommended
+              </span>
             </button>
             <button
               type="button"
@@ -387,11 +390,19 @@ export function CreateVaultForm({
                 placeholder="Agent public key (base58)"
                 className="w-full px-3 py-2.5 border border-line-soft bg-[rgba(2,10,12,0.7)] text-text font-display text-sm focus:outline-none focus:border-line"
               />
-              <div className="border border-line-soft bg-[rgba(2,10,12,0.52)] p-3 text-xs leading-relaxed text-muted">
-                Use this if your agent already controls a Solana wallet and
-                can access its matching keypair file. If the wallet is managed
-                by a platform and your agent cannot access that keypair,
-                generate a new Tandem keypair instead.
+              <div className="flex items-start gap-3 border border-line bg-[rgba(10,186,181,0.06)] p-3 text-xs leading-relaxed text-muted">
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-accent font-display text-[0.7rem] font-bold text-accent"
+                >
+                  !
+                </span>
+                <p>
+                  Only paste a public key if your agent already controls that
+                  Solana wallet and can access its matching keypair file. If
+                  the wallet is managed by a platform and your agent cannot
+                  access that keypair, use Generate keypair instead.
+                </p>
               </div>
             </div>
           )}
