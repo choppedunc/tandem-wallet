@@ -111,10 +111,21 @@ h3,
 
 .brackets-accent:not(:disabled):hover {
   --accent-fill: linear-gradient(135deg, #1fd0cb, #9af6f2);
+  background:
+    linear-gradient(#9af6f2, #9af6f2) 0 0 / 14px 1px no-repeat,
+    linear-gradient(#9af6f2, #9af6f2) 0 0 / 1px 14px no-repeat,
+    linear-gradient(#9af6f2, #9af6f2) 100% 0 / 14px 1px no-repeat,
+    linear-gradient(#9af6f2, #9af6f2) 100% 0 / 1px 14px no-repeat,
+    linear-gradient(#9af6f2, #9af6f2) 0 100% / 14px 1px no-repeat,
+    linear-gradient(#9af6f2, #9af6f2) 0 100% / 1px 14px no-repeat,
+    linear-gradient(#9af6f2, #9af6f2) 100% 100% / 14px 1px no-repeat,
+    linear-gradient(#9af6f2, #9af6f2) 100% 100% / 1px 14px no-repeat,
+    var(--accent-fill);
   box-shadow:
-    0 0 0 1px rgba(10, 186, 181, 0.28),
+    0 0 0 1px rgba(154, 246, 242, 0.42),
+    0 0 22px rgba(10, 186, 181, 0.34),
     0 14px 34px rgba(10, 186, 181, 0.24);
-  filter: brightness(1.04) saturate(1.08);
+  filter: brightness(1.08) saturate(1.12);
   transform: translateY(-1px);
 }
 
