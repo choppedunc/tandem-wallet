@@ -83,7 +83,7 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
   }, []);
 
   const keypairDiscoveryCommand =
-    'KEYPAIR_PATH="${TANDEM_AGENT_KEYPAIR:-$(find "$PWD" "$PWD/web" "$HOME/Downloads" "$HOME/.tandem" -maxdepth 1 -name agent-keypair.json -type f -print -quit 2>/dev/null)}"; test -n "$KEYPAIR_PATH" || { echo "agent-keypair.json not found. Save it in the current folder, ./web, ~/Downloads, or ~/.tandem."; exit 1; };';
+    'KEYPAIR_PATH="${TANDEM_AGENT_KEYPAIR:-$(find "$PWD" "$PWD/web" "$HOME/Downloads" "$HOME/.tandem" -maxdepth 1 \\( -name "tandem-agent-keypair*.json" -o -name "agent-keypair.json" \\) -type f -print -quit 2>/dev/null)}"; test -n "$KEYPAIR_PATH" || { echo "Tandem agent keypair file not found. Save tandem-agent-keypair*.json in the current folder, ./web, ~/Downloads, or ~/.tandem."; exit 1; };';
 
   const packageSetupCommand = useMemo(
     () =>
@@ -167,10 +167,9 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
         </div>
 
         <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted">
-          Give your agent the downloaded file named agent-keypair.json, then
-          run this setup command in the agent environment. Setup verifies the
-          keypair against this vault and uses the file wherever the agent saved
-          it.
+          Give your agent the downloaded Tandem keypair file, then run this
+          setup command in the agent environment. Setup verifies the keypair
+          against this vault and uses the file wherever the agent saved it.
         </p>
 
         <CodeBlock

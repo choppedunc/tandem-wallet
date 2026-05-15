@@ -18,6 +18,7 @@ const repoRoot = path.resolve(__dirname, "../../..");
 const mcpServerPath = path.join(__dirname, "tandem-agent-mcp.cjs");
 const instructionFileName = "TANDEM_AGENT_INSTRUCTIONS.md";
 const defaultAgentKeypairFileName = "agent-keypair.json";
+const tandemAgentKeypairFileName = "tandem-agent-keypair.json";
 const defaultAgentKeypairPath = "~/.tandem/agent-keypair.json";
 
 function usage() {
@@ -34,8 +35,9 @@ Usage:
   tandem-agent mcp [--config <path>]
 
 The connector stores only config and a keypair file path. During setup it can
-auto-import agent-keypair.json from the current folder, ./web, ~/Downloads, or
-~/.tandem. Do not put mainnet keypair files inside this repository.`);
+auto-import tandem-agent-keypair*.json or agent-keypair.json from the current
+folder, ./web, ~/Downloads, or ~/.tandem. Do not put mainnet keypair files
+inside this repository.`);
 }
 
 function parseArgs(argv) {
@@ -89,13 +91,45 @@ function uniquePaths(paths) {
     });
 }
 
+function keypairCandidatesInDir(dirPath) {
+  const expanded = expandPath(dirPath);
+  let entries;
+  try {
+    entries = fs.readdirSync(expanded, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const tandemFiles = entries
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        /^tandem-agent-keypair(?:-.+)?\.json$/u.test(entry.name)
+    )
+    .map((entry) => path.join(expanded, entry.name))
+    .sort();
+  const legacyFile = path.join(expanded, defaultAgentKeypairFileName);
+
+  return fs.existsSync(legacyFile) ? [...tandemFiles, legacyFile] : tandemFiles;
+}
+
 function setupKeypairCandidates(requestedPath) {
   const cwd = process.cwd();
+  const searchDirs = [
+    cwd,
+    path.join(cwd, "web"),
+    path.join(os.homedir(), "Downloads"),
+    path.join(os.homedir(), ".tandem"),
+  ];
   return uniquePaths([
     requestedPath,
     process.env.TANDEM_AGENT_KEYPAIR,
+    ...searchDirs.flatMap(keypairCandidatesInDir),
+    path.join(cwd, tandemAgentKeypairFileName),
     path.join(cwd, defaultAgentKeypairFileName),
+    path.join(cwd, "web", tandemAgentKeypairFileName),
     path.join(cwd, "web", defaultAgentKeypairFileName),
+    path.join(os.homedir(), "Downloads", tandemAgentKeypairFileName),
     path.join(os.homedir(), "Downloads", defaultAgentKeypairFileName),
     defaultAgentKeypairPath,
   ]);
@@ -162,7 +196,7 @@ async function resolveSetupAgentKeypair({ args, rpcUrl, vault }) {
     throw new Error(
       [
         "Agent keypair file was not found.",
-        `Save the downloaded ${defaultAgentKeypairFileName} in the agent's current folder, ./web, ~/Downloads, or ~/.tandem; then rerun setup.`,
+        `Save the downloaded Tandem keypair file in the agent's current folder, ./web, ~/Downloads, or ~/.tandem; then rerun setup.`,
         "You can also pass --agent-keypair <path>.",
         "Searched:",
         ...candidates.map((candidate) => `- ${candidate}`),

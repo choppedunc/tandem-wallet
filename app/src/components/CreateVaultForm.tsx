@@ -60,14 +60,27 @@ function CopyButton({ value, label }: { value: string | null; label: string }) {
   );
 }
 
-function DownloadKeypairButton({ value }: { value: string | null }) {
+function agentKeypairFileName(publicKey: string | null) {
+  if (!publicKey) return "tandem-agent-keypair.json";
+  return `tandem-agent-keypair-${publicKey.slice(0, 4)}-${publicKey.slice(
+    -4
+  )}.json`;
+}
+
+function DownloadKeypairButton({
+  value,
+  publicKey,
+}: {
+  value: string | null;
+  publicKey: string | null;
+}) {
   function download() {
     if (!value) return;
     const blob = new Blob([`${value}\n`], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "agent-keypair.json";
+    link.download = agentKeypairFileName(publicKey);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -107,6 +120,7 @@ export function CreateVaultForm({
   const [confirmationStep, setConfirmationStep] = useState<
     "stored" | "risk" | null
   >(null);
+  const generatedKeypairFileName = agentKeypairFileName(generatedPubkey);
 
   function clearGeneratedAgent() {
     setGeneratedPubkey(null);
@@ -293,27 +307,45 @@ export function CreateVaultForm({
                   </div>
                   <div>
                     <div className="mb-1.5 flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-xs uppercase tracking-[0.14em] text-accent font-display">
-                        Agent keypair file
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.14em] text-accent font-display">
+                          Tandem agent keypair
+                        </div>
+                        <div className="mt-1 break-all font-display text-[0.68rem] text-muted">
+                          {generatedKeypairFileName}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <CopyButton
-                          value={generatedKeypairJson}
-                          label="Copy JSON"
-                        />
-                        <DownloadKeypairButton value={generatedKeypairJson} />
-                      </div>
+                      <DownloadKeypairButton
+                        value={generatedKeypairJson}
+                        publicKey={generatedPubkey}
+                      />
                     </div>
                     <code className="block max-h-24 overflow-auto border border-line-soft bg-black/20 p-3 text-xs font-display text-text">
                       {generatedKeypairJson}
                     </code>
                     <p className="text-xs mt-2 text-muted">
                       Shown once and cleared after vault creation. Tandem does
-                      not store this key. Give the JSON file to the machine
-                      running your agent as agent-keypair.json; setup will
-                      verify and import it. Keep the base58 private key as a
-                      backup, and keep both formats out of repos and chats.
+                      not store this key. Download this file and give it to the
+                      machine running your agent; setup will find, verify, and
+                      import it. Keep the base58 private key as a backup, and
+                      keep both formats out of repos and chats.
                     </p>
+                    <details className="mt-3 border border-line-soft p-3">
+                      <summary className="cursor-pointer font-display text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted">
+                        Advanced: copy raw JSON
+                      </summary>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs text-muted">
+                          Use this only if your agent cannot receive file
+                          uploads. Save the copied text as the exact JSON file
+                          shown above.
+                        </p>
+                        <CopyButton
+                          value={generatedKeypairJson}
+                          label="Copy JSON"
+                        />
+                      </div>
+                    </details>
                   </div>
                 </div>
               )}
