@@ -107,10 +107,10 @@ function DownloadKeypairButton({
       type="button"
       onClick={download}
       disabled={!value}
-      className="inline-flex shrink-0 items-center gap-2 border border-line-soft px-3 py-1.5 text-[0.65rem] font-display uppercase tracking-[0.14em] text-muted hover:border-line hover:text-text disabled:opacity-50"
+      className="inline-flex shrink-0 items-center gap-2 border border-line bg-[rgba(10,186,181,0.12)] px-4 py-2.5 text-[0.65rem] font-display uppercase tracking-[0.14em] text-text hover:bg-[rgba(10,186,181,0.18)] disabled:opacity-50"
     >
       {attention ? <AttentionPulse label="Download agent keypair" /> : null}
-      <span>Download JSON</span>
+      <span>Download Keypair JSON</span>
     </button>
   );
 }
@@ -310,7 +310,33 @@ export function CreateVaultForm({
                   Generate
                 </button>
               ) : (
-                <div className="border border-line-soft p-4 bg-[rgba(10,186,181,0.04)] space-y-3 text-sm">
+                <div className="space-y-4 border border-line-soft bg-[rgba(10,186,181,0.04)] p-4 text-sm">
+                  <div className="border border-line bg-[rgba(10,186,181,0.07)] p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.14em] text-accent font-display">
+                          Tandem agent keypair
+                        </div>
+                        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
+                          Download this file and give it to the machine running
+                          your agent. Setup will find, verify, and import it.
+                        </p>
+                        <div className="mt-2 break-all font-display text-[0.68rem] text-text">
+                          {generatedKeypairFileName}
+                        </div>
+                      </div>
+                      <DownloadKeypairButton
+                        value={generatedKeypairJson}
+                        publicKey={generatedPubkey}
+                        attention={!generatedKeypairSaved}
+                        onDownload={() => setGeneratedKeypairSaved(true)}
+                      />
+                    </div>
+                    <p className="mt-3 text-xs text-muted">
+                      Shown once and cleared after vault creation. Tandem does
+                      not store this key.
+                    </p>
+                  </div>
                   <div>
                     <div className="mb-1.5 flex items-center justify-between gap-3">
                       <div className="text-xs uppercase tracking-[0.14em] text-accent-2 font-display">
@@ -332,34 +358,12 @@ export function CreateVaultForm({
                     <code className="block text-xs break-all font-display text-text">
                       {generatedSecret}
                     </code>
+                    <p className="mt-2 text-xs text-muted">
+                      Keep this as a backup, and keep all private key formats
+                      out of repos and chats.
+                    </p>
                   </div>
                   <div>
-                    <div className="mb-1.5 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="text-xs uppercase tracking-[0.14em] text-accent font-display">
-                          Tandem agent keypair
-                        </div>
-                        <div className="mt-1 break-all font-display text-[0.68rem] text-muted">
-                          {generatedKeypairFileName}
-                        </div>
-                      </div>
-                      <DownloadKeypairButton
-                        value={generatedKeypairJson}
-                        publicKey={generatedPubkey}
-                        attention={!generatedKeypairSaved}
-                        onDownload={() => setGeneratedKeypairSaved(true)}
-                      />
-                    </div>
-                    <code className="block max-h-24 overflow-auto border border-line-soft bg-black/20 p-3 text-xs font-display text-text">
-                      {generatedKeypairJson}
-                    </code>
-                    <p className="text-xs mt-2 text-muted">
-                      Shown once and cleared after vault creation. Tandem does
-                      not store this key. Download this file and give it to the
-                      machine running your agent; setup will find, verify, and
-                      import it. Keep the base58 private key as a backup, and
-                      keep both formats out of repos and chats.
-                    </p>
                     <details className="mt-3 border border-line-soft p-3">
                       <summary className="cursor-pointer font-display text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted">
                         Advanced: copy raw JSON
@@ -368,7 +372,7 @@ export function CreateVaultForm({
                         <p className="text-xs text-muted">
                           Use this only if your agent cannot receive file
                           uploads. Save the copied text as the exact JSON file
-                          shown above.
+                          named above.
                         </p>
                         <CopyButton
                           value={generatedKeypairJson}
