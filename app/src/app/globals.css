@@ -94,6 +94,23 @@ h3,
     linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 14px 1px no-repeat,
     linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 1px 14px no-repeat,
     linear-gradient(135deg, var(--color-accent), #6de7e3);
+  transition:
+    box-shadow 160ms ease,
+    filter 160ms ease,
+    transform 160ms ease;
+}
+
+.brackets-accent:not(:disabled):hover {
+  box-shadow:
+    0 0 0 1px rgba(10, 186, 181, 0.28),
+    0 14px 34px rgba(10, 186, 181, 0.24);
+  filter: brightness(1.08) saturate(1.08);
+  transform: translateY(-1px);
+}
+
+.brackets-accent:not(:disabled):active {
+  filter: brightness(0.98);
+  transform: translateY(0);
 }
 
 /* Override wallet-adapter button to match design */

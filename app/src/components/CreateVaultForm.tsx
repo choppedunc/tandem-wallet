@@ -295,7 +295,7 @@ export function CreateVaultForm({
                   : "border-line-soft text-muted hover:text-text"
               }`}
             >
-              Paste public key
+              Paste Existing Agent Public Key
             </button>
           </div>
 
@@ -432,7 +432,8 @@ export function CreateVaultForm({
           </div>
           <p className="text-xs text-muted mt-2">
             Per-transaction limit your agent can spend without your approval.
-            Set to 0 to require your approval on every send.
+            Set to 0 to require your approval on every send. You can change
+            this limit at any time from the dashboard.
           </p>
         </div>
 
