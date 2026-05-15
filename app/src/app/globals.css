@@ -69,6 +69,14 @@ h3,
   letter-spacing: 0.01em;
 }
 
+:where(a[href], button:not(:disabled), summary, [role="button"], [role="link"]) {
+  cursor: pointer;
+}
+
+:where(button:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed;
+}
+
 /* Cyberpunk corner-bracket frame, applied as decorative accent */
 .brackets {
   background:
@@ -84,6 +92,7 @@ h3,
 }
 
 .brackets-accent {
+  --accent-fill: linear-gradient(135deg, var(--color-accent), #6de7e3);
   background:
     linear-gradient(var(--color-line), var(--color-line)) 0 0 / 14px 1px no-repeat,
     linear-gradient(var(--color-line), var(--color-line)) 0 0 / 1px 14px no-repeat,
@@ -93,7 +102,7 @@ h3,
     linear-gradient(var(--color-line), var(--color-line)) 0 100% / 1px 14px no-repeat,
     linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 14px 1px no-repeat,
     linear-gradient(var(--color-line), var(--color-line)) 100% 100% / 1px 14px no-repeat,
-    linear-gradient(135deg, var(--color-accent), #6de7e3);
+    var(--accent-fill);
   transition:
     box-shadow 160ms ease,
     filter 160ms ease,
@@ -101,10 +110,11 @@ h3,
 }
 
 .brackets-accent:not(:disabled):hover {
+  --accent-fill: linear-gradient(135deg, #1fd0cb, #9af6f2);
   box-shadow:
     0 0 0 1px rgba(10, 186, 181, 0.28),
     0 14px 34px rgba(10, 186, 181, 0.24);
-  filter: brightness(1.08) saturate(1.08);
+  filter: brightness(1.04) saturate(1.08);
   transform: translateY(-1px);
 }
 
