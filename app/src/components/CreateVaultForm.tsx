@@ -318,8 +318,9 @@ export function CreateVaultForm({
                           Tandem agent keypair
                         </div>
                         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-                          Download this file and give it to the machine running
-                          your agent. Setup will find, verify, and import it.
+                          Download this file and give it to your agent, or
+                          store it somewhere your agent can access. Tandem
+                          setup will find, verify, and import it.
                         </p>
                         <div className="mt-2 break-all font-display text-[0.68rem] text-text">
                           {generatedKeypairFileName}
