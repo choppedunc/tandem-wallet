@@ -13,6 +13,7 @@ import { getProgram } from "@/lib/program";
 import { protocolConfigPda } from "@/lib/pdas";
 import { formatSol, formatUsdc, usdcToRaw } from "@/lib/format";
 import type { VaultData } from "./VaultDetail";
+import { AttentionPulse } from "./AttentionPulse";
 
 const ONE_USDC_RAW = BigInt(1_000_000);
 const FUNDED_THRESHOLD_RAW = BigInt(10_000);
@@ -374,11 +375,14 @@ export function VaultOverview({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div
-                className={`mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] ${
+                className={`mb-2 flex items-center gap-2 font-display text-[0.65rem] uppercase tracking-[0.18em] ${
                   needsDeposit ? "text-[#064947]" : "text-accent-2"
                 }`}
               >
-                {needsDeposit ? "Deposit needed" : "Deposit USDC"}
+                {needsDeposit ? (
+                  <AttentionPulse label="USDC deposit needed" />
+                ) : null}
+                <span>{needsDeposit ? "Deposit needed" : "Deposit USDC"}</span>
               </div>
               <h2
                 className={`font-display text-xl font-bold ${
@@ -475,6 +479,9 @@ export function FundsPanel({
 }) {
   const usdcDepositAddress = vault.vaultUsdcAta.toBase58();
   const agentAddress = vault.agent.toBase58();
+  const needsUsdcTopUp = usdcBalance !== null && usdcBalance < ONE_USDC_RAW;
+  const needsAgentSolTopUp =
+    agentSolBalance !== null && agentSolBalance <= 0;
 
   return (
     <div className="space-y-4">
@@ -496,9 +503,12 @@ export function FundsPanel({
             <button
               type="button"
               onClick={onTopUpUsdc}
-              className="brackets-accent px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#032b2a]"
+              className="brackets-accent inline-flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#032b2a]"
             >
-              Top up
+              {needsUsdcTopUp ? (
+                <AttentionPulse label="Vault needs USDC" />
+              ) : null}
+              <span>Top up</span>
             </button>
           </div>
 
@@ -532,9 +542,12 @@ export function FundsPanel({
             <button
               type="button"
               onClick={onTopUpSol}
-              className="brackets-accent px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#032b2a]"
+              className="brackets-accent inline-flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#032b2a]"
             >
-              Top up
+              {needsAgentSolTopUp ? (
+                <AttentionPulse label="Agent wallet needs SOL" />
+              ) : null}
+              <span>Top up</span>
             </button>
           </div>
 

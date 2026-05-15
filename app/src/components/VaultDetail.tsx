@@ -28,6 +28,7 @@ import { ProposalHistoryPanel } from "./ProposalHistoryPanel";
 import { ProposalsPanel } from "./ProposalsPanel";
 import { WhitelistPanel } from "./WhitelistPanel";
 import { AgentConnectorPanel } from "./AgentConnectorPanel";
+import { AttentionPulse } from "./AttentionPulse";
 
 export type VaultData = {
   address: PublicKey;
@@ -49,6 +50,8 @@ export type VaultTab =
   | "agent";
 const LIVE_REFRESH_INTERVAL_MS = 45_000;
 const LIVE_REFRESH_DEBOUNCE_MS = 750;
+const SETUP_USDC_THRESHOLD_RAW = BigInt(1_000_000);
+const AGENT_COMMAND_COPIED_STORAGE_KEY = "tandem:agent-command-copied:v1";
 
 type ActionModal = "usdc" | "sol" | "limit" | null;
 
@@ -69,6 +72,28 @@ function normalizeActionError(error: unknown): string {
 
 function shortSignature(signature: string): string {
   return `${signature.slice(0, 8)}...${signature.slice(-8)}`;
+}
+
+function agentCommandCopiedKey(vaultAddress: PublicKey): string {
+  return `${AGENT_COMMAND_COPIED_STORAGE_KEY}:${vaultAddress.toBase58()}`;
+}
+
+function loadAgentCommandCopied(vaultAddress: PublicKey): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(agentCommandCopiedKey(vaultAddress)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveAgentCommandCopied(vaultAddress: PublicKey) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(agentCommandCopiedKey(vaultAddress), "1");
+  } catch {
+    // Setup progress markers should not block vault use.
+  }
 }
 
 function CopyButton({
@@ -147,6 +172,8 @@ function Stat({
   actionLabel,
   actionDisabled,
   onAction,
+  attention,
+  attentionLabel,
 }: {
   label: string;
   value: React.ReactNode;
@@ -154,6 +181,8 @@ function Stat({
   actionLabel?: string;
   actionDisabled?: boolean;
   onAction?: () => void;
+  attention?: boolean;
+  attentionLabel?: string;
 }) {
   return (
     <div className="border border-line-soft px-4 py-3 bg-[rgba(3,17,19,0.7)]">
@@ -162,14 +191,17 @@ function Stat({
           {label}
         </div>
         {actionLabel && onAction ? (
-          <button
-            type="button"
-            onClick={onAction}
-            disabled={actionDisabled}
-            className="shrink-0 border border-line-soft px-2.5 py-1 text-[0.6rem] font-display uppercase tracking-[0.14em] text-accent-2 transition-colors hover:border-line hover:text-text disabled:opacity-50"
-          >
-            {actionLabel}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {attention ? <AttentionPulse label={attentionLabel} /> : null}
+            <button
+              type="button"
+              onClick={onAction}
+              disabled={actionDisabled}
+              className="border border-line-soft px-2.5 py-1 text-[0.6rem] font-display uppercase tracking-[0.14em] text-accent-2 transition-colors hover:border-line hover:text-text disabled:opacity-50"
+            >
+              {actionLabel}
+            </button>
+          </div>
         ) : null}
       </div>
       <div className={`font-display text-base ${accent ?? "text-text"}`}>
@@ -198,6 +230,7 @@ export function VaultDetail({
   const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null);
   const [agentSolBalance, setAgentSolBalance] = useState<number | null>(null);
   const [pendingProposalCount, setPendingProposalCount] = useState(0);
+  const [agentCommandCopied, setAgentCommandCopied] = useState(false);
   const [actionModal, setActionModal] = useState<ActionModal>(null);
   const [usdcTopUpAmount, setUsdcTopUpAmount] = useState("");
   const [solTopUpAmount, setSolTopUpAmount] = useState("");
@@ -226,6 +259,10 @@ export function VaultDetail({
   useEffect(() => {
     setLimitInput(rawToUsdc(vault.spendingLimit).toString());
   }, [vault.address, vault.spendingLimit]);
+
+  useEffect(() => {
+    setAgentCommandCopied(loadAgentCommandCopied(vault.address));
+  }, [vault.address]);
 
   const refreshBalances = useCallback(async () => {
     if (balancesRefreshInFlightRef.current) return;
@@ -337,6 +374,11 @@ export function VaultDetail({
     refreshPendingProposalCount();
     onChange();
   }, [onChange, refreshPendingProposalCount]);
+
+  const markAgentCommandCopied = useCallback(() => {
+    saveAgentCommandCopied(vault.address);
+    setAgentCommandCopied(true);
+  }, [vault.address]);
 
   function openActionModal(modal: Exclude<ActionModal, null>) {
     setActionError(null);
@@ -537,16 +579,39 @@ export function VaultDetail({
     }
   }
 
-  const tabs: { id: VaultTab; label: string; badge?: number }[] = useMemo(
+  const needsUsdcTopUp =
+    usdcBalance !== null && usdcBalance < SETUP_USDC_THRESHOLD_RAW;
+  const needsAgentSolTopUp =
+    agentSolBalance !== null && agentSolBalance <= 0;
+  const needsAgentSetupAttention = needsAgentSolTopUp || !agentCommandCopied;
+  const needsFundsAttention = needsUsdcTopUp || needsAgentSolTopUp;
+
+  const tabs: {
+    id: VaultTab;
+    label: string;
+    badge?: number;
+    attention?: boolean;
+    attentionLabel?: string;
+  }[] = useMemo(
     () => [
       { id: "overview", label: "Overview" },
-      { id: "funds", label: "Funds" },
+      {
+        id: "funds",
+        label: "Funds",
+        attention: needsFundsAttention,
+        attentionLabel: "Vault funding needed",
+      },
       { id: "proposals", label: "Proposals", badge: pendingProposalCount },
       { id: "history", label: "History" },
       { id: "whitelist", label: "Whitelist" },
-      { id: "agent", label: "Agent" },
+      {
+        id: "agent",
+        label: "Agent",
+        attention: needsAgentSetupAttention,
+        attentionLabel: "Agent setup needs attention",
+      },
     ],
-    [pendingProposalCount]
+    [needsAgentSetupAttention, needsFundsAttention, pendingProposalCount]
   );
 
   return (
@@ -566,12 +631,16 @@ export function VaultDetail({
             label="USDC"
             value={usdcBalance === null ? "…" : formatUsdc(Number(usdcBalance))}
             actionLabel="Top up"
+            attention={needsUsdcTopUp}
+            attentionLabel="Vault needs USDC"
             onAction={() => openActionModal("usdc")}
           />
           <Stat
             label="Agent SOL"
             value={agentSolBalance === null ? "…" : formatSol(agentSolBalance)}
             actionLabel="Top up"
+            attention={needsAgentSolTopUp}
+            attentionLabel="Agent wallet needs SOL"
             onAction={() => openActionModal("sol")}
           />
           <Stat
@@ -614,15 +683,11 @@ export function VaultDetail({
               <span>{t.label}</span>
               {t.badge ? (
                 <span className="inline-flex items-center gap-1.5 text-accent-2">
-                  <span
-                    aria-hidden="true"
-                    className="relative flex h-2.5 w-2.5"
-                  >
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#d45f67] opacity-60" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#d45f67] shadow-[0_0_10px_rgba(212,95,103,0.45)]" />
-                  </span>
+                  <AttentionPulse label="Pending proposals" />
                   <span>({t.badge})</span>
                 </span>
+              ) : t.attention ? (
+                <AttentionPulse label={t.attentionLabel} />
               ) : null}
             </button>
           ))}
@@ -655,7 +720,14 @@ export function VaultDetail({
       )}
       {tab === "history" && <ProposalHistoryPanel vault={vault} />}
       {tab === "whitelist" && <WhitelistPanel vault={vault} />}
-      {tab === "agent" && <AgentConnectorPanel vault={vault} />}
+      {tab === "agent" && (
+        <AgentConnectorPanel
+          vault={vault}
+          commandCopied={agentCommandCopied}
+          needsAgentSolTopUp={needsAgentSolTopUp}
+          onCommandCopied={markAgentCommandCopied}
+        />
+      )}
 
       {actionModal === "usdc" && (
         <ActionModalShell

@@ -20,6 +20,7 @@ import { protocolConfigPda, vaultPda } from "@/lib/pdas";
 import { NETWORK, USDC_MINT } from "@/lib/network";
 import { formatSol, usdcToRaw } from "@/lib/format";
 import { fallbackVaultName } from "@/lib/vaultNames";
+import { AttentionPulse } from "./AttentionPulse";
 
 const VAULT_ACCOUNT_SIZE = 154;
 const CREATE_VAULT_FEE_BUFFER_LAMPORTS = 20_000;
@@ -38,13 +39,22 @@ function normalizeCreateVaultError(error: unknown): string {
   return String(error);
 }
 
-function CopyButton({ value, label }: { value: string | null; label: string }) {
+function CopyButton({
+  value,
+  label,
+  onCopy,
+}: {
+  value: string | null;
+  label: string;
+  onCopy?: () => void;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
     if (!value) return;
     await navigator.clipboard.writeText(value);
     setCopied(true);
+    onCopy?.();
     window.setTimeout(() => setCopied(false), 1200);
   }
 
@@ -70,9 +80,13 @@ function agentKeypairFileName(publicKey: string | null) {
 function DownloadKeypairButton({
   value,
   publicKey,
+  attention,
+  onDownload,
 }: {
   value: string | null;
   publicKey: string | null;
+  attention?: boolean;
+  onDownload?: () => void;
 }) {
   function download() {
     if (!value) return;
@@ -85,6 +99,7 @@ function DownloadKeypairButton({
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+    onDownload?.();
   }
 
   return (
@@ -92,9 +107,10 @@ function DownloadKeypairButton({
       type="button"
       onClick={download}
       disabled={!value}
-      className="shrink-0 border border-line-soft px-3 py-1.5 text-[0.65rem] font-display uppercase tracking-[0.14em] text-muted hover:border-line hover:text-text disabled:opacity-50"
+      className="inline-flex shrink-0 items-center gap-2 border border-line-soft px-3 py-1.5 text-[0.65rem] font-display uppercase tracking-[0.14em] text-muted hover:border-line hover:text-text disabled:opacity-50"
     >
-      Download JSON
+      {attention ? <AttentionPulse label="Download agent keypair" /> : null}
+      <span>Download JSON</span>
     </button>
   );
 }
@@ -120,12 +136,14 @@ export function CreateVaultForm({
   const [confirmationStep, setConfirmationStep] = useState<
     "stored" | "risk" | null
   >(null);
+  const [generatedKeypairSaved, setGeneratedKeypairSaved] = useState(false);
   const generatedKeypairFileName = agentKeypairFileName(generatedPubkey);
 
   function clearGeneratedAgent() {
     setGeneratedPubkey(null);
     setGeneratedSecret(null);
     setGeneratedKeypairJson(null);
+    setGeneratedKeypairSaved(false);
   }
 
   function generateAgent() {
@@ -133,6 +151,7 @@ export function CreateVaultForm({
     setGeneratedPubkey(kp.publicKey.toBase58());
     setGeneratedSecret(bs58.encode(kp.secretKey));
     setGeneratedKeypairJson(JSON.stringify(Array.from(kp.secretKey), null, 2));
+    setGeneratedKeypairSaved(false);
   }
 
   async function createVault() {
@@ -190,6 +209,7 @@ export function CreateVaultForm({
       setGeneratedSecret(null);
       setGeneratedKeypairJson(null);
       setGeneratedPubkey(null);
+      setGeneratedKeypairSaved(false);
       setAgentPubkeyInput("");
       setVaultName("");
     } catch (error) {
@@ -318,6 +338,8 @@ export function CreateVaultForm({
                       <DownloadKeypairButton
                         value={generatedKeypairJson}
                         publicKey={generatedPubkey}
+                        attention={!generatedKeypairSaved}
+                        onDownload={() => setGeneratedKeypairSaved(true)}
                       />
                     </div>
                     <code className="block max-h-24 overflow-auto border border-line-soft bg-black/20 p-3 text-xs font-display text-text">
@@ -343,6 +365,7 @@ export function CreateVaultForm({
                         <CopyButton
                           value={generatedKeypairJson}
                           label="Copy JSON"
+                          onCopy={() => setGeneratedKeypairSaved(true)}
                         />
                       </div>
                     </details>

@@ -4,19 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import { NETWORK, PROGRAM_ID, RPC_URL } from "@/lib/network";
 import { shortAddress } from "@/lib/format";
 import type { VaultData } from "./VaultDetail";
+import { AttentionPulse } from "./AttentionPulse";
 
 function CopyButton({
   value,
   label = "Copy",
+  onCopy,
 }: {
   value: string;
   label?: string;
+  onCopy?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
     await navigator.clipboard.writeText(value);
     setCopied(true);
+    onCopy?.();
     window.setTimeout(() => setCopied(false), 1200);
   }
 
@@ -35,10 +39,12 @@ function CodeBlock({
   label,
   value,
   copyLabel = "Copy",
+  onCopy,
 }: {
   label: string;
   value: string;
   copyLabel?: string;
+  onCopy?: () => void;
 }) {
   return (
     <div>
@@ -46,7 +52,7 @@ function CodeBlock({
         <p className="text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
           {label}
         </p>
-        <CopyButton value={value} label={copyLabel} />
+        <CopyButton value={value} label={copyLabel} onCopy={onCopy} />
       </div>
       <pre className="overflow-x-auto border border-line-soft bg-[rgba(2,10,12,0.78)] p-3 text-xs leading-relaxed text-text">
         <code>{value}</code>
@@ -71,7 +77,17 @@ function DetailLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
+export function AgentConnectorPanel({
+  vault,
+  commandCopied = false,
+  needsAgentSolTopUp = false,
+  onCommandCopied,
+}: {
+  vault: VaultData;
+  commandCopied?: boolean;
+  needsAgentSolTopUp?: boolean;
+  onCommandCopied?: () => void;
+}) {
   const vaultAddress = vault.address.toBase58();
   const agentAddress = vault.agent.toBase58();
   const programId = PROGRAM_ID.toBase58();
@@ -172,10 +188,36 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
           against this vault and uses the file wherever the agent saved it.
         </p>
 
+        {needsAgentSolTopUp && (
+          <div className="mb-4 flex items-start gap-3 border border-line-soft bg-[rgba(58,23,25,0.42)] p-3">
+            <AttentionPulse
+              label="Agent wallet needs SOL"
+              className="mt-1"
+            />
+            <div>
+              <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-text">
+                Agent wallet needs SOL
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                Top up the agent wallet before asking it to send or propose
+                transactions.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!commandCopied && (
+          <div className="mb-3 flex items-center gap-2 text-sm text-muted">
+            <AttentionPulse label="Copy setup command" />
+            <span>Copy this command and send it to your agent.</span>
+          </div>
+        )}
+
         <CodeBlock
           label="Setup command"
           value={packageSetupCommand}
           copyLabel="Copy command"
+          onCopy={onCommandCopied}
         />
 
         <div className="mt-5 grid gap-2 md:grid-cols-3">
