@@ -11,7 +11,7 @@ import {
 } from "@solana/spl-token";
 import { getProgram } from "@/lib/program";
 import { protocolConfigPda } from "@/lib/pdas";
-import { formatUsdc, usdcToRaw } from "@/lib/format";
+import { formatSol, formatUsdc, usdcToRaw } from "@/lib/format";
 import type { VaultData } from "./VaultDetail";
 
 const ONE_USDC_RAW = BigInt(1_000_000);
@@ -350,12 +350,10 @@ function WithdrawPanel({
 export function VaultOverview({
   vault,
   usdcBalance,
-  onChange,
   onTopUpUsdc,
 }: {
   vault: VaultData;
   usdcBalance: bigint | null;
-  onChange: () => void;
   onTopUpUsdc: () => void;
 }) {
   const needsDeposit = usdcBalance !== null && usdcBalance < ONE_USDC_RAW;
@@ -437,8 +435,6 @@ export function VaultOverview({
         </div>
       )}
 
-      <WithdrawPanel vault={vault} usdcBalance={usdcBalance} onChange={onChange} />
-
       <div className="brackets p-6">
         <p className="text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display mb-4">
           Vault details
@@ -457,6 +453,105 @@ export function VaultOverview({
           </div>
         </details>
       </div>
+    </div>
+  );
+}
+
+export function FundsPanel({
+  vault,
+  usdcBalance,
+  agentSolBalance,
+  onChange,
+  onTopUpUsdc,
+  onTopUpSol,
+}: {
+  vault: VaultData;
+  usdcBalance: bigint | null;
+  agentSolBalance: number | null;
+  onChange: () => void;
+  onTopUpUsdc: () => void;
+  onTopUpSol: () => void;
+}) {
+  const usdcDepositAddress = vault.vaultUsdcAta.toBase58();
+  const agentAddress = vault.agent.toBase58();
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="brackets p-5">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-accent-2">
+                Deposit USDC
+              </p>
+              <h2 className="font-display text-xl font-bold text-text">
+                Fund vault balance
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Current balance:{" "}
+                {usdcBalance === null ? "..." : formatUsdc(usdcBalance)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onTopUpUsdc}
+              className="brackets-accent px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#032b2a]"
+            >
+              Top up
+            </button>
+          </div>
+
+          <div className="border border-line-soft bg-[rgba(2,10,12,0.7)] px-3 py-3">
+            <p className="mb-2 text-[0.65rem] uppercase tracking-[0.16em] text-muted font-display">
+              USDC deposit account
+            </p>
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+              <code className="min-w-0 flex-1 break-all font-display text-sm text-text">
+                {usdcDepositAddress}
+              </code>
+              <CopyButton value={usdcDepositAddress} label="Copy" />
+            </div>
+          </div>
+        </section>
+
+        <section className="brackets p-5">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-accent-2">
+                Agent SOL
+              </p>
+              <h2 className="font-display text-xl font-bold text-text">
+                Fund agent gas
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Current balance:{" "}
+                {agentSolBalance === null ? "..." : formatSol(agentSolBalance)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onTopUpSol}
+              className="brackets-accent px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#032b2a]"
+            >
+              Top up
+            </button>
+          </div>
+
+          <div className="border border-line-soft bg-[rgba(2,10,12,0.7)] px-3 py-3">
+            <p className="mb-2 text-[0.65rem] uppercase tracking-[0.16em] text-muted font-display">
+              Agent wallet
+            </p>
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+              <code className="min-w-0 flex-1 break-all font-display text-sm text-text">
+                {agentAddress}
+              </code>
+              <CopyButton value={agentAddress} label="Copy" />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <WithdrawPanel vault={vault} usdcBalance={usdcBalance} onChange={onChange} />
     </div>
   );
 }

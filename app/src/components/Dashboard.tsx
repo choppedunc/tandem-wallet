@@ -22,6 +22,7 @@ const WalletMultiButton = dynamic(
 
 const VAULT_TABS = new Set<VaultTab>([
   "overview",
+  "funds",
   "proposals",
   "history",
   "whitelist",

@@ -23,7 +23,7 @@ import {
   usdcToRaw,
 } from "@/lib/format";
 import { getProgram } from "@/lib/program";
-import { VaultOverview } from "./VaultOverview";
+import { FundsPanel, VaultOverview } from "./VaultOverview";
 import { ProposalHistoryPanel } from "./ProposalHistoryPanel";
 import { ProposalsPanel } from "./ProposalsPanel";
 import { WhitelistPanel } from "./WhitelistPanel";
@@ -42,6 +42,7 @@ export type VaultData = {
 
 export type VaultTab =
   | "overview"
+  | "funds"
   | "proposals"
   | "history"
   | "whitelist"
@@ -539,6 +540,7 @@ export function VaultDetail({
   const tabs: { id: VaultTab; label: string; badge?: number }[] = useMemo(
     () => [
       { id: "overview", label: "Overview" },
+      { id: "funds", label: "Funds" },
       { id: "proposals", label: "Proposals", badge: pendingProposalCount },
       { id: "history", label: "History" },
       { id: "whitelist", label: "Whitelist" },
@@ -631,8 +633,17 @@ export function VaultDetail({
         <VaultOverview
           vault={vault}
           usdcBalance={usdcBalance}
+          onTopUpUsdc={() => openActionModal("usdc")}
+        />
+      )}
+      {tab === "funds" && (
+        <FundsPanel
+          vault={vault}
+          usdcBalance={usdcBalance}
+          agentSolBalance={agentSolBalance}
           onChange={handleChange}
           onTopUpUsdc={() => openActionModal("usdc")}
+          onTopUpSol={() => openActionModal("sol")}
         />
       )}
       {tab === "proposals" && (
