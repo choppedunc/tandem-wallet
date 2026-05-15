@@ -441,6 +441,7 @@ export function VaultOverview({
         </p>
         <AddressLine label="Human wallet" value={vault.human.toBase58()} />
         <AddressLine label="Agent wallet" value={vault.agent.toBase58()} />
+        <AddressLine label="USDC vault wallet" value={vault.vaultUsdcAta.toBase58()} />
         <TextLine label="Proposals created" value={vault.proposalCount.toString()} />
 
         <details className="group mt-4 border border-line-soft bg-[rgba(2,10,12,0.45)] px-4">
