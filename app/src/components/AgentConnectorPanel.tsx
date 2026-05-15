@@ -77,6 +77,21 @@ function DetailLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+function InfoTooltip({ label }: { label: string }) {
+  return (
+    <span
+      title={label}
+      aria-label={label}
+      className="group relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line-soft text-[0.65rem] text-accent-2 transition-colors hover:border-line hover:text-text"
+    >
+      ?
+      <span className="pointer-events-none absolute right-0 top-7 z-20 hidden w-64 border border-line-soft bg-[rgba(2,10,12,0.98)] p-3 font-sans text-xs normal-case leading-relaxed tracking-normal text-muted shadow-[0_12px_32px_rgba(0,0,0,0.45)] group-hover:block">
+        {label}
+      </span>
+    </span>
+  );
+}
+
 export function AgentConnectorPanel({
   vault,
   commandCopied = false,
@@ -106,20 +121,6 @@ export function AgentConnectorPanel({
       [
         keypairDiscoveryCommand,
         "npx -y @tandemwallet/agent@latest setup",
-        `--vault ${vaultAddress}`,
-        '--agent-keypair "$KEYPAIR_PATH"',
-        `--rpc-url ${RPC_URL}`,
-        `--program-id ${programId}`,
-        `--app-url ${appUrl}`,
-      ].join(" "),
-    [appUrl, keypairDiscoveryCommand, programId, vaultAddress]
-  );
-
-  const localRepoCommand = useMemo(
-    () =>
-      [
-        keypairDiscoveryCommand,
-        "npm run agent -- setup",
         `--vault ${vaultAddress}`,
         '--agent-keypair "$KEYPAIR_PATH"',
         `--rpc-url ${RPC_URL}`,
@@ -291,40 +292,57 @@ export function AgentConnectorPanel({
       </section>
 
       <section className="brackets p-6">
-        <p className="mb-4 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
-          Connector details
-        </p>
-        <div className="mb-5">
-          <DetailLine label="Vault PDA" value={vaultAddress} />
-          <DetailLine label="Agent" value={agentAddress} />
-          <DetailLine label="Program" value={programId} />
-          <DetailLine label="RPC" value={RPC_URL} />
-          <DetailLine label="App URL" value={appUrl} />
-        </div>
+        <details className="border border-line-soft p-4">
+          <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
+            <span>Connector Details</span>
+            <InfoTooltip label="Reference values for this vault connection. Most users do not need these unless they are debugging setup or configuring a custom agent environment." />
+          </summary>
+          <div className="mt-4">
+            <DetailLine label="Vault PDA" value={vaultAddress} />
+            <DetailLine label="Agent" value={agentAddress} />
+            <DetailLine label="Program" value={programId} />
+            <DetailLine label="RPC" value={RPC_URL} />
+            <DetailLine label="App URL" value={appUrl} />
+          </div>
+        </details>
+      </section>
 
+      <section className="brackets p-6">
+        <div className="mb-5">
+          <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
+            Additional Agent Instruction
+          </p>
+          <p className="max-w-2xl text-sm leading-relaxed text-muted">
+            These optional instructions are not required for Tandem to work,
+            but they can help guide an agent by explaining how it should behave
+            when sending payments, creating proposals, and checking proposal
+            status.
+          </p>
+        </div>
         <div className="space-y-5">
-          <CodeBlock label="Agent instruction" value={agentInstruction} />
           <details className="border border-line-soft p-4">
-            <summary className="cursor-pointer font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
-              MCP configuration
+            <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
+              <span>Guidance Prompt</span>
+              <InfoTooltip label="Optional prompt text you can paste to your agent. It is not required for setup, but helps the agent understand how to use Tandem safely and when to ask the human for approval." />
+            </summary>
+            <div className="mt-4">
+              <CodeBlock
+                label="Guidance prompt"
+                value={agentInstruction}
+                copyLabel="Copy prompt"
+              />
+            </div>
+          </details>
+          <details className="border border-line-soft p-4">
+            <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
+              <span>MCP Configuration</span>
+              <InfoTooltip label="Optional configuration for agents that support MCP tools. This lets the agent call Tandem actions as structured tools instead of relying only on terminal commands." />
             </summary>
             <div className="mt-4">
               <CodeBlock
                 label="MCP config"
                 value={mcpConfig}
                 copyLabel="Copy config"
-              />
-            </div>
-          </details>
-          <details className="border border-line-soft p-4">
-            <summary className="cursor-pointer font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
-              Local repo command
-            </summary>
-            <div className="mt-4">
-              <CodeBlock
-                label="Development command"
-                value={localRepoCommand}
-                copyLabel="Copy command"
               />
             </div>
           </details>
