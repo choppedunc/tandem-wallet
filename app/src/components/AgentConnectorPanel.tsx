@@ -80,7 +80,6 @@ function DetailLine({ label, value }: { label: string; value: string }) {
 function InfoTooltip({ label }: { label: string }) {
   return (
     <span
-      title={label}
       aria-label={label}
       className="group relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line-soft text-[0.65rem] text-accent-2 transition-colors hover:border-line hover:text-text"
     >
