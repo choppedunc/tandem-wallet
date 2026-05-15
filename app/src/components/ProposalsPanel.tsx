@@ -48,7 +48,8 @@ type ReviewAction = {
   proposalKey: string;
 };
 
-const LIVE_REFRESH_INTERVAL_MS = 15_000;
+const LIVE_REFRESH_INTERVAL_MS = 45_000;
+const LIVE_REFRESH_DEBOUNCE_MS = 750;
 
 function statusOf(proposal: Proposal): "pending" | "executed" | "cancelled" {
   if (proposal.executed) return "executed";
@@ -188,6 +189,8 @@ export function ProposalsPanel({
   const [lastTransaction, setLastTransaction] = useState<LastTransaction | null>(null);
   const [reviewAction, setReviewAction] = useState<ReviewAction | null>(null);
   const appliedInitialProposalRef = useRef<string | null>(null);
+  const refreshInFlightRef = useRef(false);
+  const liveRefreshTimerRef = useRef<number | null>(null);
 
   const program = useMemo(
     () => (wallet ? getProgram(connection, wallet) : null),
@@ -196,6 +199,8 @@ export function ProposalsPanel({
 
   const refresh = useCallback(async () => {
     if (!program) return;
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
     setError(null);
     try {
       const protocolConfigAddress = protocolConfigPda();
@@ -229,32 +234,41 @@ export function ProposalsPanel({
       setVaultBalance(vaultTokenAccount.amount);
     } catch (error) {
       setError(normalizeError(error));
+    } finally {
+      refreshInFlightRef.current = false;
     }
   }, [connection, program, vault.address, vault.vaultUsdcAta]);
 
   useEffect(() => {
     refresh();
+    const scheduleRefresh = () => {
+      if (liveRefreshTimerRef.current) {
+        window.clearTimeout(liveRefreshTimerRef.current);
+      }
+      liveRefreshTimerRef.current = window.setTimeout(() => {
+        void refresh();
+      }, LIVE_REFRESH_DEBOUNCE_MS);
+    };
 
     const interval = window.setInterval(() => {
-      refresh();
+      void refresh();
     }, LIVE_REFRESH_INTERVAL_MS);
     const vaultSubscription = connection.onAccountChange(
       vault.address,
-      () => {
-        refresh();
-      },
+      scheduleRefresh,
       "confirmed"
     );
     const vaultUsdcSubscription = connection.onAccountChange(
       vault.vaultUsdcAta,
-      () => {
-        refresh();
-      },
+      scheduleRefresh,
       "confirmed"
     );
 
     return () => {
       window.clearInterval(interval);
+      if (liveRefreshTimerRef.current) {
+        window.clearTimeout(liveRefreshTimerRef.current);
+      }
       void connection.removeAccountChangeListener(vaultSubscription);
       void connection.removeAccountChangeListener(vaultUsdcSubscription);
     };
@@ -330,6 +344,9 @@ export function ProposalsPanel({
     setError(null);
     setLastTransaction(null);
     try {
+      const approvedDebit =
+        rawToBigInt(proposal.amount) +
+        calculateFee(proposal.amount, protocolConfig.feeBps);
       let setupSignature: string | undefined;
       const recipientAtaAccount = await connection.getAccountInfo(proposal.recipientAta);
       if (!recipientAtaAccount) {
@@ -393,8 +410,22 @@ export function ProposalsPanel({
         signature,
         setupSignature,
       });
-      await refresh();
-      onChange();
+      setProposals((current) =>
+        current
+          ? current.map((item) =>
+              item.pda.equals(proposal.pda)
+                ? { ...item, executed: true }
+                : item
+            )
+          : current
+      );
+      setVaultBalance((current) =>
+        current === null ? current : current - approvedDebit
+      );
+      window.setTimeout(() => {
+        void refresh();
+        onChange();
+      }, LIVE_REFRESH_DEBOUNCE_MS);
     } catch (error) {
       setError(normalizeError(error));
     } finally {
@@ -428,8 +459,19 @@ export function ProposalsPanel({
         action: "cancelled",
         signature,
       });
-      await refresh();
-      onChange();
+      setProposals((current) =>
+        current
+          ? current.map((item) =>
+              item.pda.equals(proposal.pda)
+                ? { ...item, cancelled: true }
+                : item
+            )
+          : current
+      );
+      window.setTimeout(() => {
+        void refresh();
+        onChange();
+      }, LIVE_REFRESH_DEBOUNCE_MS);
     } catch (error) {
       setError(normalizeError(error));
     } finally {

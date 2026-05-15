@@ -32,7 +32,8 @@ export type VaultTab =
   | "settings"
   | "whitelist"
   | "agent";
-const LIVE_REFRESH_INTERVAL_MS = 15_000;
+const LIVE_REFRESH_INTERVAL_MS = 45_000;
+const LIVE_REFRESH_DEBOUNCE_MS = 750;
 
 function Stat({
   label,
@@ -75,6 +76,9 @@ export function VaultDetail({
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [pendingProposalCount, setPendingProposalCount] = useState(0);
   const appliedInitialViewRef = useRef<string | null>(null);
+  const balancesRefreshInFlightRef = useRef(false);
+  const pendingRefreshInFlightRef = useRef(false);
+  const liveRefreshTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!initialTab) return;
@@ -87,6 +91,8 @@ export function VaultDetail({
   }, [initialProposal, initialTab, vault.address]);
 
   const refreshBalances = useCallback(async () => {
+    if (balancesRefreshInFlightRef.current) return;
+    balancesRefreshInFlightRef.current = true;
     try {
       const [acct, sol] = await Promise.all([
         getAccount(connection, vault.vaultUsdcAta),
@@ -97,11 +103,15 @@ export function VaultDetail({
     } catch {
       setUsdcBalance(BigInt(0));
       setSolBalance(0);
+    } finally {
+      balancesRefreshInFlightRef.current = false;
     }
   }, [connection, vault.address, vault.vaultUsdcAta]);
 
   const refreshPendingProposalCount = useCallback(async () => {
     if (!wallet) return;
+    if (pendingRefreshInFlightRef.current) return;
+    pendingRefreshInFlightRef.current = true;
     try {
       const program = getProgram(connection, wallet);
       const accounts = await program.account.proposal.all([
@@ -114,6 +124,8 @@ export function VaultDetail({
       );
     } catch {
       setPendingProposalCount(0);
+    } finally {
+      pendingRefreshInFlightRef.current = false;
     }
   }, [connection, vault.address, wallet]);
 
@@ -130,18 +142,28 @@ export function VaultDetail({
       void refreshBalances();
       void refreshPendingProposalCount();
     };
+    const scheduleLiveStateRefresh = () => {
+      if (cancelled) return;
+      if (liveRefreshTimerRef.current) {
+        window.clearTimeout(liveRefreshTimerRef.current);
+      }
+      liveRefreshTimerRef.current = window.setTimeout(
+        refreshLiveState,
+        LIVE_REFRESH_DEBOUNCE_MS
+      );
+    };
 
     const vaultSubscription = connection.onAccountChange(
       vault.address,
       () => {
-        refreshLiveState();
+        scheduleLiveStateRefresh();
         onChange();
       },
       "confirmed"
     );
     const vaultUsdcSubscription = connection.onAccountChange(
       vault.vaultUsdcAta,
-      refreshLiveState,
+      scheduleLiveStateRefresh,
       "confirmed"
     );
     const interval = window.setInterval(
@@ -152,6 +174,9 @@ export function VaultDetail({
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      if (liveRefreshTimerRef.current) {
+        window.clearTimeout(liveRefreshTimerRef.current);
+      }
       void connection.removeAccountChangeListener(vaultSubscription);
       void connection.removeAccountChangeListener(vaultUsdcSubscription);
     };

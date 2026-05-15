@@ -65,6 +65,7 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const appliedDeepLinkVaultRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
 
   const program = useMemo(
     () => (wallet ? getProgram(connection, wallet) : null),
@@ -79,6 +80,8 @@ export function Dashboard() {
 
   const refresh = useCallback(async () => {
     if (!program || !wallet) return;
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -131,6 +134,7 @@ export function Dashboard() {
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
     } finally {
+      refreshInFlightRef.current = false;
       setLoading(false);
     }
   }, [deepLink.vault, program, vaultCreatedOrder, wallet]);
