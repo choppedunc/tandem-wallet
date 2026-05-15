@@ -247,7 +247,7 @@ export function AgentConnectorPanel({
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
-                Connect agent
+                Connection
               </p>
               <h2 className="font-display text-2xl font-bold text-text">
                 One command for agent setup
@@ -295,6 +295,23 @@ export function AgentConnectorPanel({
         </div>
       </section>
 
+      {commandCopied && (
+        <section className="brackets p-6">
+          <p className="mb-4 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
+            Connection
+          </p>
+          <details className="border border-line-soft p-4">
+            <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
+              <span>Agent Setup Command</span>
+              <InfoTooltip label="Kept here in case you need to reconnect the agent, set it up on another machine, or copy the setup command again." />
+            </summary>
+            <div className="mt-4">
+              {setupCommandContent}
+            </div>
+          </details>
+        </section>
+      )}
+
       <section className="brackets p-6">
         <details className="border border-line-soft p-4">
           <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
@@ -324,17 +341,6 @@ export function AgentConnectorPanel({
           </p>
         </div>
         <div className="space-y-5">
-          {commandCopied && (
-            <details className="border border-line-soft p-4">
-              <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
-                <span>Agent Setup Command</span>
-                <InfoTooltip label="Kept here in case you need to reconnect the agent, set it up on another machine, or copy the setup command again." />
-              </summary>
-              <div className="mt-4">
-                {setupCommandContent}
-              </div>
-            </details>
-          )}
           <details className="border border-line-soft p-4">
             <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
               <span>Guidance Prompt</span>
