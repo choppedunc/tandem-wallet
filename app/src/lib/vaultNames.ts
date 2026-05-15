@@ -11,6 +11,7 @@ export type VaultMetadata = Record<
   {
     name?: string;
     createdAt?: number;
+    updatedAt?: number;
   }
 >;
 
@@ -64,13 +65,43 @@ export function loadVaultMetadata(): VaultMetadata {
         : typeof legacyOrder[key] === "number"
           ? legacyOrder[key]
           : undefined;
+    const updatedAt =
+      typeof metadata[key]?.updatedAt === "number"
+        ? metadata[key]?.updatedAt
+        : undefined;
 
     if (name || createdAt !== undefined) {
-      merged[key] = { name, createdAt };
+      merged[key] = { name, createdAt, updatedAt };
     }
   });
 
   return merged;
+}
+
+export function saveVaultMetadataSnapshot(metadata: VaultMetadata): VaultMetadata {
+  const cleaned: VaultMetadata = {};
+  const names: VaultNames = {};
+  const createdOrder: VaultCreatedOrder = {};
+
+  Object.entries(metadata).forEach(([address, entry]) => {
+    const name = typeof entry.name === "string" ? entry.name.trim() : undefined;
+    const createdAt =
+      typeof entry.createdAt === "number" ? entry.createdAt : undefined;
+    const updatedAt =
+      typeof entry.updatedAt === "number" ? entry.updatedAt : undefined;
+
+    if (!name && createdAt === undefined) return;
+
+    cleaned[address] = { name, createdAt, updatedAt };
+    if (name) names[address] = name;
+    if (createdAt !== undefined) createdOrder[address] = createdAt;
+  });
+
+  writeStorageObject(METADATA_STORAGE_KEY, cleaned);
+  writeStorageObject(STORAGE_KEY, names);
+  writeStorageObject(ORDER_STORAGE_KEY, createdOrder);
+
+  return cleaned;
 }
 
 function saveVaultMetadata(
@@ -94,8 +125,7 @@ function saveVaultMetadata(
     delete next[key];
   }
 
-  writeStorageObject(METADATA_STORAGE_KEY, next);
-  return next;
+  return saveVaultMetadataSnapshot(next);
 }
 
 export function loadVaultNames(): VaultNames {
@@ -119,7 +149,10 @@ export function saveVaultName(address: PublicKey | string, name: string): VaultN
   else delete next[key];
 
   writeStorageObject(STORAGE_KEY, next);
-  saveVaultMetadata(key, { name: trimmed || undefined });
+  saveVaultMetadata(key, {
+    name: trimmed || undefined,
+    updatedAt: Date.now(),
+  });
   return next;
 }
 

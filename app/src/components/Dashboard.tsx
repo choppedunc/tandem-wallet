@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
+import {
+  useAnchorWallet,
+  useConnection,
+  useWallet,
+} from "@solana/wallet-adapter-react";
 import type { Connection, PublicKey } from "@solana/web3.js";
 import { getProgram } from "@/lib/program";
+import { syncVaultMetadata } from "@/lib/vaultMetadataSync";
 import {
   fallbackVaultName,
   loadVaultCreatedOrder,
@@ -81,6 +86,8 @@ async function discoverVaultCreatedAt(
 export function Dashboard() {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
+  const { signMessage } = useWallet();
+  const walletAddress = wallet?.publicKey.toBase58() ?? null;
   const [vaults, setVaults] = useState<VaultData[] | null>(null);
   const [vaultNames, setVaultNames] = useState<Record<string, string>>({});
   const [selectedVaultAddress, setSelectedVaultAddress] = useState<
@@ -96,6 +103,8 @@ export function Dashboard() {
   const [loading, setLoading] = useState(false);
   const appliedDeepLinkVaultRef = useRef(false);
   const refreshInFlightRef = useRef(false);
+  const metadataSyncInFlightRef = useRef(false);
+  const metadataSyncSkippedRef = useRef(false);
 
   const program = useMemo(
     () => (wallet ? getProgram(connection, wallet) : null),
@@ -106,6 +115,10 @@ export function Dashboard() {
     setVaultNames(loadVaultNames());
     setDeepLink(readDeepLink());
   }, []);
+
+  useEffect(() => {
+    metadataSyncSkippedRef.current = false;
+  }, [walletAddress]);
 
   const refresh = useCallback(async () => {
     if (!program || !wallet) return;
@@ -137,6 +150,25 @@ export function Dashboard() {
         const createdAt = await discoverVaultCreatedAt(connection, vault.address);
         if (createdAt !== null) {
           orderForDisplay = saveVaultCreatedAt(vault.address, createdAt);
+        }
+      }
+
+      if (
+        signMessage &&
+        !metadataSyncInFlightRef.current &&
+        !metadataSyncSkippedRef.current
+      ) {
+        metadataSyncInFlightRef.current = true;
+        const result = await syncVaultMetadata({
+          publicKey: wallet.publicKey,
+          signMessage,
+        });
+        metadataSyncInFlightRef.current = false;
+
+        if (result.synced) {
+          orderForDisplay = loadVaultCreatedOrder();
+        } else if (result.error) {
+          metadataSyncSkippedRef.current = true;
         }
       }
 
@@ -181,7 +213,7 @@ export function Dashboard() {
       refreshInFlightRef.current = false;
       setLoading(false);
     }
-  }, [connection, deepLink.vault, program, wallet]);
+  }, [connection, deepLink.vault, program, signMessage, wallet]);
 
   useEffect(() => {
     if (program && wallet) refresh();

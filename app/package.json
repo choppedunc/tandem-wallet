@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
+    "@neondatabase/serverless": "^1.1.0",
     "@solana/spl-token": "^0.4.14",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-phantom": "^0.9.29",
@@ -30,7 +31,8 @@
     "bs58": "^6.0.0",
     "next": "16.2.5",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tweetnacl": "^1.0.3"
   },
   "overrides": {
     "postcss": "8.5.14"
