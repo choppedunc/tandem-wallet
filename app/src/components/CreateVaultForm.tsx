@@ -309,9 +309,9 @@ export function CreateVaultForm({
                     </code>
                     <p className="text-xs mt-2 text-muted">
                       Shown once and cleared after vault creation. Tandem does
-                      not store this key. The setup command expects this JSON
-                      file at ~/.tandem/agent-keypair.json on the machine
-                      running your agent. Keep the base58 private key as a
+                      not store this key. Give the JSON file to the machine
+                      running your agent as agent-keypair.json; setup will
+                      verify and import it. Keep the base58 private key as a
                       backup, and keep both formats out of repos and chats.
                     </p>
                   </div>

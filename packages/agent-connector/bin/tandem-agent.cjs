@@ -2,7 +2,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { PublicKey } = require("@solana/web3.js");
+const { Connection, PublicKey } = require("@solana/web3.js");
 const {
   DEFAULT_APP_URL,
   DEFAULT_PROGRAM_ID,
@@ -10,18 +10,21 @@ const {
   clientFromConfig,
   defaultConfigPath,
   expandPath,
+  readKeypair,
   writePrivateJson,
 } = require("../src/index.cjs");
 
 const repoRoot = path.resolve(__dirname, "../../..");
 const mcpServerPath = path.join(__dirname, "tandem-agent-mcp.cjs");
 const instructionFileName = "TANDEM_AGENT_INSTRUCTIONS.md";
+const defaultAgentKeypairFileName = "agent-keypair.json";
+const defaultAgentKeypairPath = "~/.tandem/agent-keypair.json";
 
 function usage() {
   console.log(`Tandem Wallet Agent Connector
 
 Usage:
-  tandem-agent setup --vault <vault> --agent-keypair <path> [--rpc-url <url>] [--program-id <id>] [--app-url <url>]
+  tandem-agent setup --vault <vault> [--agent-keypair <path>] [--rpc-url <url>] [--program-id <id>] [--app-url <url>]
   tandem-agent state [--config <path>]
   tandem-agent send --recipient <wallet> --amount <usdc> [--vault <vault>] [--config <path>]
   tandem-agent propose --recipient <wallet> --amount <usdc> [--memo <text>] [--vault <vault>] [--config <path>]
@@ -30,8 +33,9 @@ Usage:
   tandem-agent proposals [--vault <vault>] [--limit <n>] [--config <path>]
   tandem-agent mcp [--config <path>]
 
-The connector stores only config and a keypair file path. Do not put mainnet
-keypair files inside this repository.`);
+The connector stores only config and a keypair file path. During setup it can
+auto-import agent-keypair.json from the current folder, ./web, ~/Downloads, or
+~/.tandem. Do not put mainnet keypair files inside this repository.`);
 }
 
 function parseArgs(argv) {
@@ -70,6 +74,159 @@ function isInsideRepo(filePath) {
     !relative.startsWith("..") &&
     !path.isAbsolute(relative)
   );
+}
+
+function uniquePaths(paths) {
+  const seen = new Set();
+  return paths
+    .filter(Boolean)
+    .map((candidate) => path.resolve(expandPath(candidate)))
+    .filter((candidate) => {
+      const key = candidate.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function setupKeypairCandidates(requestedPath) {
+  const cwd = process.cwd();
+  return uniquePaths([
+    requestedPath,
+    process.env.TANDEM_AGENT_KEYPAIR,
+    path.join(cwd, defaultAgentKeypairFileName),
+    path.join(cwd, "web", defaultAgentKeypairFileName),
+    path.join(os.homedir(), "Downloads", defaultAgentKeypairFileName),
+    defaultAgentKeypairPath,
+  ]);
+}
+
+function existingFiles(paths) {
+  return paths.filter((candidate) => {
+    try {
+      return fs.statSync(candidate).isFile();
+    } catch {
+      return false;
+    }
+  });
+}
+
+function copyPrivateFile(sourcePath, targetPath) {
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.copyFileSync(sourcePath, targetPath);
+  fs.chmodSync(targetPath, 0o600);
+}
+
+function readKeypairPublicKey(filePath) {
+  try {
+    return readKeypair(filePath).publicKey.toBase58();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Could not read agent keypair at ${filePath}: ${message}`);
+  }
+}
+
+async function fetchVaultAgent(rpcUrl, vault) {
+  const connection = new Connection(rpcUrl, "confirmed");
+  const account = await connection.getAccountInfo(new PublicKey(vault));
+  if (!account) {
+    throw new Error(`Vault account not found: ${vault}`);
+  }
+  if (account.data.length < 72) {
+    throw new Error(`Vault account has unexpected data length: ${vault}`);
+  }
+  return new PublicKey(account.data.subarray(40, 72)).toBase58();
+}
+
+async function resolveSetupAgentKeypair({ args, rpcUrl, vault }) {
+  const requestedPath = expandPath(
+    args["agent-keypair"] ||
+      process.env.TANDEM_AGENT_KEYPAIR ||
+      defaultAgentKeypairPath
+  );
+  const requestedPathInsideRepo = isInsideRepo(requestedPath);
+  const targetPath =
+    requestedPathInsideRepo && !args["allow-repo-keypair"]
+      ? expandPath(defaultAgentKeypairPath)
+      : requestedPath;
+  const candidates = setupKeypairCandidates(requestedPath);
+  const existing = existingFiles(candidates);
+
+  if (existing.length === 0) {
+    throw new Error(
+      [
+        "Agent keypair file was not found.",
+        `Save the downloaded ${defaultAgentKeypairFileName} in the agent's current folder, ./web, ~/Downloads, or ~/.tandem; then rerun setup.`,
+        "You can also pass --agent-keypair <path>.",
+        "Searched:",
+        ...candidates.map((candidate) => `- ${candidate}`),
+      ].join("\n")
+    );
+  }
+
+  let expectedAgent = null;
+  try {
+    expectedAgent = await fetchVaultAgent(rpcUrl, vault);
+  } catch {
+    // If RPC is unavailable, fall back to the first readable candidate and let
+    // later write actions enforce the signer/vault relationship.
+  }
+
+  let chosenPath = null;
+  const found = [];
+
+  for (const candidate of existing) {
+    const publicKey = readKeypairPublicKey(candidate);
+    found.push({ path: candidate, publicKey });
+    if (!expectedAgent || publicKey === expectedAgent) {
+      chosenPath = candidate;
+      break;
+    }
+  }
+
+  if (!chosenPath) {
+    throw new Error(
+      [
+        `No matching agent keypair found. Vault expects agent ${expectedAgent}.`,
+        "Found:",
+        ...found.map((entry) => `- ${entry.path} (${entry.publicKey})`),
+      ].join("\n")
+    );
+  }
+
+  const shouldImport =
+    path.resolve(chosenPath) !== path.resolve(targetPath) ||
+    (isInsideRepo(chosenPath) && !args["allow-repo-keypair"]);
+
+  if (isInsideRepo(chosenPath) && args["allow-repo-keypair"]) {
+    return {
+      agentKeypairPath: chosenPath,
+      expectedAgent,
+      importedFrom: null,
+    };
+  }
+
+  if (shouldImport) {
+    copyPrivateFile(chosenPath, targetPath);
+    return {
+      agentKeypairPath: targetPath,
+      expectedAgent,
+      importedFrom: chosenPath,
+    };
+  }
+
+  if (isInsideRepo(chosenPath) && !args["allow-repo-keypair"]) {
+    throw new Error(
+      "Refusing to use an agent keypair inside this repo. Move it to ~/.tandem or pass --allow-repo-keypair for devnet only."
+    );
+  }
+
+  fs.chmodSync(chosenPath, 0o600);
+  return {
+    agentKeypairPath: chosenPath,
+    expectedAgent,
+    importedFrom: null,
+  };
 }
 
 function agentInstructions({ vault, rpcUrl, programId, appUrl }) {
@@ -127,32 +284,14 @@ async function setup(args) {
       DEFAULT_PROGRAM_ID
   );
   const configPath = expandPath(args.config || defaultConfigPath());
-  const agentKeypairPath = args["agent-keypair"];
-
-  if (!agentKeypairPath) {
-    throw new Error(
-      "--agent-keypair is required. Use a local keypair file outside this repo."
-    );
-  }
-
-  const expandedKeypairPath = expandPath(agentKeypairPath);
-  if (!fs.existsSync(expandedKeypairPath)) {
-    throw new Error(
-      `Agent keypair file does not exist: ${expandedKeypairPath}`
-    );
-  }
-  if (isInsideRepo(expandedKeypairPath) && !args["allow-repo-keypair"]) {
-    throw new Error(
-      "Refusing to use an agent keypair inside this repo. Move it to ~/.tandem or pass --allow-repo-keypair for devnet only."
-    );
-  }
+  const keypair = await resolveSetupAgentKeypair({ args, rpcUrl, vault });
 
   const config = {
     rpcUrl,
     appUrl,
     programId,
     vault,
-    agentKeypairPath: expandedKeypairPath,
+    agentKeypairPath: keypair.agentKeypairPath,
     createdAt: new Date().toISOString(),
   };
   writePrivateJson(configPath, config);
@@ -174,6 +313,9 @@ async function setup(args) {
         programId,
         rpcUrl,
         appUrl,
+        agent: keypair.expectedAgent,
+        agentKeypairPath: keypair.agentKeypairPath,
+        importedKeypairFrom: keypair.importedFrom,
         mcpServer: mcpConfigSnippet(configPath),
       },
       null,

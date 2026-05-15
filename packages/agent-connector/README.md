@@ -9,25 +9,23 @@ recipient USDC token accounts when needed.
 
 ## Setup
 
-Create a vault in the Tandem Wallet app, download the generated
-`agent-keypair.json`, then place it on the machine running the agent:
+Create a vault in the Tandem Wallet app, then give the downloaded
+`agent-keypair.json` file to the machine running the agent.
 
-```sh
-mkdir -p ~/.tandem
-mv ~/Downloads/agent-keypair.json ~/.tandem/agent-keypair.json
-chmod 600 ~/.tandem/agent-keypair.json
-```
-
-Run setup:
+Run setup from the same agent environment:
 
 ```sh
 npx @tandemwallet/agent setup \
   --vault <vault_pda> \
-  --agent-keypair ~/.tandem/agent-keypair.json \
   --rpc-url https://api.devnet.solana.com \
   --program-id 6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ \
   --app-url http://localhost:3000
 ```
+
+Setup auto-finds `agent-keypair.json` in the current folder, `./web`,
+`~/Downloads`, or `~/.tandem`, verifies it matches the vault's agent address,
+and imports it to `~/.tandem/agent-keypair.json` when needed. You can still
+pass `--agent-keypair <path>` for custom locations.
 
 This writes local config to `~/.tandem/agent.json`.
 For mobile approval links, set `--app-url` to the deployed Tandem Wallet app

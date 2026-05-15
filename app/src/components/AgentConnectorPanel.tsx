@@ -75,7 +75,6 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
   const vaultAddress = vault.address.toBase58();
   const agentAddress = vault.agent.toBase58();
   const programId = PROGRAM_ID.toBase58();
-  const defaultAgentKeypairPath = "~/.tandem/agent-keypair.json";
   const defaultConfigPath = "~/.tandem/agent.json";
   const [appUrl, setAppUrl] = useState("http://localhost:3000");
 
@@ -83,22 +82,11 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
     setAppUrl(window.location.origin);
   }, []);
 
-  const placeKeypairCommand = useMemo(
-    () =>
-      [
-        "mkdir -p ~/.tandem",
-        "mv ~/Downloads/agent-keypair.json ~/.tandem/agent-keypair.json",
-        "chmod 600 ~/.tandem/agent-keypair.json",
-      ].join("\n"),
-    []
-  );
-
   const packageSetupCommand = useMemo(
     () =>
       [
         "npx -y @tandemwallet/agent@latest setup",
         `--vault ${vaultAddress}`,
-        `--agent-keypair ${defaultAgentKeypairPath}`,
         `--rpc-url ${RPC_URL}`,
         `--program-id ${programId}`,
         `--app-url ${appUrl}`,
@@ -111,7 +99,6 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
       [
         "npm run agent -- setup",
         `--vault ${vaultAddress}`,
-        `--agent-keypair ${defaultAgentKeypairPath}`,
         `--rpc-url ${RPC_URL}`,
         `--program-id ${programId}`,
         `--app-url ${appUrl}`,
@@ -173,18 +160,11 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
         </div>
 
         <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted">
-          Store the downloaded agent keypair locally, then run this setup
-          command in the agent environment. The config points to the keypair
-          path; it does not copy private key material.
+          Give your agent the downloaded file named agent-keypair.json, then
+          run this setup command in the agent environment. Setup verifies the
+          keypair against this vault and imports it into the local Tandem
+          folder when needed.
         </p>
-
-        <div className="mb-5">
-          <CodeBlock
-            label="Place keypair file"
-            value={placeKeypairCommand}
-            copyLabel="Copy"
-          />
-        </div>
 
         <CodeBlock
           label="Setup command"
@@ -211,10 +191,10 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
           </div>
           <div className="border border-line-soft bg-[rgba(3,17,19,0.62)] p-3">
             <p className="mb-1 text-[0.62rem] uppercase tracking-[0.16em] text-muted font-display">
-              Config
+              Keypair
             </p>
             <p className="font-display text-sm text-text">
-              {defaultConfigPath}
+              Auto-imported
             </p>
           </div>
         </div>
