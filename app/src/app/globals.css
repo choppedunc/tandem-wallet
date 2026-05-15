@@ -26,12 +26,21 @@ body {
   min-height: 100%;
 }
 
+html {
+  background: #020503;
+}
+
 body {
   position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(circle at 20% -5%, rgba(6, 44, 46, 0.14), transparent 34%),
     radial-gradient(circle at 84% 14%, rgba(6, 6, 6, 0.56), transparent 48%),
     linear-gradient(180deg, #030404 0%, #010202 55%, #000000 100%);
+  background-color: #020503;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--color-text);
   font-family: var(--font-sans);
   line-height: 1.5;
