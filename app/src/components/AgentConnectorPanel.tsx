@@ -165,96 +165,101 @@ export function AgentConnectorPanel({
     [vaultAddress]
   );
 
+  const setupCommandContent = (
+    <>
+      <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted">
+        Run this setup command in the agent environment. Setup finds the
+        agent keypair file, verifies it matches this vault, and imports the
+        vault details for future payments.
+      </p>
+
+      <div className="mb-5 border border-line-soft bg-[rgba(2,10,12,0.52)] p-4 text-sm leading-relaxed text-muted">
+        If Tandem generated the agent wallet, give your agent the downloaded
+        Tandem keypair file first. If you pasted an existing agent wallet,
+        your agent needs that wallet&apos;s matching Solana keypair file. If
+        the wallet is managed by a platform and your agent cannot access the
+        keypair, create a new Tandem agent wallet instead.
+      </div>
+
+      {needsAgentSolTopUp && (
+        <div className="mb-4 flex items-start gap-3 border border-line-soft bg-[rgba(58,23,25,0.42)] p-3">
+          <AttentionPulse
+            label="Agent wallet needs SOL"
+            className="mt-1"
+          />
+          <div>
+            <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-text">
+              Agent wallet needs SOL
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              Top up the agent wallet before asking it to send or propose
+              transactions.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!commandCopied && (
+        <div className="mb-3 flex items-center gap-2 text-sm text-muted">
+          <AttentionPulse label="Copy setup command" />
+          <span>Copy this command and send it to your agent.</span>
+        </div>
+      )}
+
+      <CodeBlock
+        label="Setup command"
+        value={packageSetupCommand}
+        copyLabel="Copy command"
+        onCopy={onCommandCopied}
+      />
+
+      <div className="mt-5 grid gap-2 md:grid-cols-3">
+        <div className="border border-line-soft bg-[rgba(3,17,19,0.62)] p-3">
+          <p className="mb-1 text-[0.62rem] uppercase tracking-[0.16em] text-muted font-display">
+            Vault
+          </p>
+          <p className="font-display text-sm text-text">
+            {shortAddress(vaultAddress, 6)}
+          </p>
+        </div>
+        <div className="border border-line-soft bg-[rgba(3,17,19,0.62)] p-3">
+          <p className="mb-1 text-[0.62rem] uppercase tracking-[0.16em] text-muted font-display">
+            Agent
+          </p>
+          <p className="font-display text-sm text-text">
+            {shortAddress(agentAddress, 6)}
+          </p>
+        </div>
+        <div className="border border-line-soft bg-[rgba(3,17,19,0.62)] p-3">
+          <p className="mb-1 text-[0.62rem] uppercase tracking-[0.16em] text-muted font-display">
+            Keypair
+          </p>
+          <p className="font-display text-sm text-text">Auto-imported</p>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="space-y-5">
-      <section className="brackets p-6">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
-              Connect agent
-            </p>
-            <h2 className="font-display text-2xl font-bold text-text">
-              One command for agent setup
-            </h2>
-          </div>
-          <div className="border border-line-soft px-3 py-2 text-[0.65rem] uppercase tracking-[0.18em] text-muted font-display">
-            {NETWORK}
-          </div>
-        </div>
-
-        <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted">
-          Run this setup command in the agent environment. Setup finds the
-          agent keypair file, verifies it matches this vault, and imports the
-          vault details for future payments.
-        </p>
-
-        <div className="mb-5 border border-line-soft bg-[rgba(2,10,12,0.52)] p-4 text-sm leading-relaxed text-muted">
-          If Tandem generated the agent wallet, give your agent the downloaded
-          Tandem keypair file first. If you pasted an existing agent wallet,
-          your agent needs that wallet&apos;s matching Solana keypair file. If
-          the wallet is managed by a platform and your agent cannot access the
-          keypair, create a new Tandem agent wallet instead.
-        </div>
-
-        {needsAgentSolTopUp && (
-          <div className="mb-4 flex items-start gap-3 border border-line-soft bg-[rgba(58,23,25,0.42)] p-3">
-            <AttentionPulse
-              label="Agent wallet needs SOL"
-              className="mt-1"
-            />
+      {!commandCopied && (
+        <section className="brackets p-6">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-text">
-                Agent wallet needs SOL
+              <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
+                Connect agent
               </p>
-              <p className="mt-1 text-sm text-muted">
-                Top up the agent wallet before asking it to send or propose
-                transactions.
-              </p>
+              <h2 className="font-display text-2xl font-bold text-text">
+                One command for agent setup
+              </h2>
+            </div>
+            <div className="border border-line-soft px-3 py-2 text-[0.65rem] uppercase tracking-[0.18em] text-muted font-display">
+              {NETWORK}
             </div>
           </div>
-        )}
-
-        {!commandCopied && (
-          <div className="mb-3 flex items-center gap-2 text-sm text-muted">
-            <AttentionPulse label="Copy setup command" />
-            <span>Copy this command and send it to your agent.</span>
-          </div>
-        )}
-
-        <CodeBlock
-          label="Setup command"
-          value={packageSetupCommand}
-          copyLabel="Copy command"
-          onCopy={onCommandCopied}
-        />
-
-        <div className="mt-5 grid gap-2 md:grid-cols-3">
-          <div className="border border-line-soft bg-[rgba(3,17,19,0.62)] p-3">
-            <p className="mb-1 text-[0.62rem] uppercase tracking-[0.16em] text-muted font-display">
-              Vault
-            </p>
-            <p className="font-display text-sm text-text">
-              {shortAddress(vaultAddress, 6)}
-            </p>
-          </div>
-          <div className="border border-line-soft bg-[rgba(3,17,19,0.62)] p-3">
-            <p className="mb-1 text-[0.62rem] uppercase tracking-[0.16em] text-muted font-display">
-              Agent
-            </p>
-            <p className="font-display text-sm text-text">
-              {shortAddress(agentAddress, 6)}
-            </p>
-          </div>
-          <div className="border border-line-soft bg-[rgba(3,17,19,0.62)] p-3">
-            <p className="mb-1 text-[0.62rem] uppercase tracking-[0.16em] text-muted font-display">
-              Keypair
-            </p>
-            <p className="font-display text-sm text-text">
-              Auto-imported
-            </p>
-          </div>
-        </div>
-      </section>
+          {setupCommandContent}
+        </section>
+      )}
 
       <section className="brackets p-6">
         <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
@@ -319,6 +324,17 @@ export function AgentConnectorPanel({
           </p>
         </div>
         <div className="space-y-5">
+          {commandCopied && (
+            <details className="border border-line-soft p-4">
+              <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
+                <span>Agent Setup Command</span>
+                <InfoTooltip label="Kept here in case you need to reconnect the agent, set it up on another machine, or copy the setup command again." />
+              </summary>
+              <div className="mt-4">
+                {setupCommandContent}
+              </div>
+            </details>
+          )}
           <details className="border border-line-soft p-4">
             <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
               <span>Guidance Prompt</span>
