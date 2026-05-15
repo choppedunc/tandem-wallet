@@ -82,28 +82,35 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
     setAppUrl(window.location.origin);
   }, []);
 
+  const keypairDiscoveryCommand =
+    'KEYPAIR_PATH="${TANDEM_AGENT_KEYPAIR:-$(find "$PWD" "$PWD/web" "$HOME/Downloads" "$HOME/.tandem" -maxdepth 1 -name agent-keypair.json -type f -print -quit 2>/dev/null)}"; test -n "$KEYPAIR_PATH" || { echo "agent-keypair.json not found. Save it in the current folder, ./web, ~/Downloads, or ~/.tandem."; exit 1; };';
+
   const packageSetupCommand = useMemo(
     () =>
       [
+        keypairDiscoveryCommand,
         "npx -y @tandemwallet/agent@latest setup",
         `--vault ${vaultAddress}`,
+        '--agent-keypair "$KEYPAIR_PATH"',
         `--rpc-url ${RPC_URL}`,
         `--program-id ${programId}`,
         `--app-url ${appUrl}`,
       ].join(" "),
-    [appUrl, programId, vaultAddress]
+    [appUrl, keypairDiscoveryCommand, programId, vaultAddress]
   );
 
   const localRepoCommand = useMemo(
     () =>
       [
+        keypairDiscoveryCommand,
         "npm run agent -- setup",
         `--vault ${vaultAddress}`,
+        '--agent-keypair "$KEYPAIR_PATH"',
         `--rpc-url ${RPC_URL}`,
         `--program-id ${programId}`,
         `--app-url ${appUrl}`,
       ].join(" "),
-    [appUrl, programId, vaultAddress]
+    [appUrl, keypairDiscoveryCommand, programId, vaultAddress]
   );
 
   const mcpConfig = useMemo(
@@ -162,8 +169,8 @@ export function AgentConnectorPanel({ vault }: { vault: VaultData }) {
         <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted">
           Give your agent the downloaded file named agent-keypair.json, then
           run this setup command in the agent environment. Setup verifies the
-          keypair against this vault and imports it into the local Tandem
-          folder when needed.
+          keypair against this vault and uses the file wherever the agent saved
+          it.
         </p>
 
         <CodeBlock

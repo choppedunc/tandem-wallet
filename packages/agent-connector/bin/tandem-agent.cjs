@@ -24,7 +24,7 @@ function usage() {
   console.log(`Tandem Wallet Agent Connector
 
 Usage:
-  tandem-agent setup --vault <vault> [--agent-keypair <path>] [--rpc-url <url>] [--program-id <id>] [--app-url <url>]
+  tandem-agent setup --vault <vault> [--agent-keypair <path>] [--keep-keypair-path] [--rpc-url <url>] [--program-id <id>] [--app-url <url>]
   tandem-agent state [--config <path>]
   tandem-agent send --recipient <wallet> --amount <usdc> [--vault <vault>] [--config <path>]
   tandem-agent propose --recipient <wallet> --amount <usdc> [--memo <text>] [--vault <vault>] [--config <path>]
@@ -144,11 +144,17 @@ async function resolveSetupAgentKeypair({ args, rpcUrl, vault }) {
       process.env.TANDEM_AGENT_KEYPAIR ||
       defaultAgentKeypairPath
   );
+  const defaultKeypairPath = expandPath(defaultAgentKeypairPath);
   const requestedPathInsideRepo = isInsideRepo(requestedPath);
+  const keepRequestedPath =
+    args["keep-keypair-path"] ||
+    path.resolve(requestedPath) === path.resolve(defaultKeypairPath);
   const targetPath =
     requestedPathInsideRepo && !args["allow-repo-keypair"]
-      ? expandPath(defaultAgentKeypairPath)
-      : requestedPath;
+      ? defaultKeypairPath
+      : keepRequestedPath
+        ? requestedPath
+        : defaultKeypairPath;
   const candidates = setupKeypairCandidates(requestedPath);
   const existing = existingFiles(candidates);
 

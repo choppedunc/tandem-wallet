@@ -25,7 +25,8 @@ npx @tandemwallet/agent setup \
 Setup auto-finds `agent-keypair.json` in the current folder, `./web`,
 `~/Downloads`, or `~/.tandem`, verifies it matches the vault's agent address,
 and imports it to `~/.tandem/agent-keypair.json` when needed. You can still
-pass `--agent-keypair <path>` for custom locations.
+pass `--agent-keypair <path>` for custom locations; add `--keep-keypair-path`
+if you want the config to continue pointing at that exact custom path.
 
 This writes local config to `~/.tandem/agent.json`.
 For mobile approval links, set `--app-url` to the deployed Tandem Wallet app
