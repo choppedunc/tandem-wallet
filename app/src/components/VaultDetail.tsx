@@ -632,6 +632,7 @@ export function VaultDetail({
           vault={vault}
           usdcBalance={usdcBalance}
           onChange={handleChange}
+          onTopUpUsdc={() => openActionModal("usdc")}
         />
       )}
       {tab === "proposals" && (

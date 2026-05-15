@@ -15,6 +15,7 @@ import { formatUsdc, usdcToRaw } from "@/lib/format";
 import type { VaultData } from "./VaultDetail";
 
 const ONE_USDC_RAW = BigInt(1_000_000);
+const FUNDED_THRESHOLD_RAW = BigInt(10_000);
 
 function CopyButton({
   value,
@@ -350,68 +351,91 @@ export function VaultOverview({
   vault,
   usdcBalance,
   onChange,
+  onTopUpUsdc,
 }: {
   vault: VaultData;
   usdcBalance: bigint | null;
   onChange: () => void;
+  onTopUpUsdc: () => void;
 }) {
   const needsDeposit = usdcBalance !== null && usdcBalance < ONE_USDC_RAW;
+  const showInitialDepositPanel =
+    usdcBalance === null || usdcBalance <= FUNDED_THRESHOLD_RAW;
   const depositAddress = vault.vaultUsdcAta.toBase58();
 
   return (
     <div className="space-y-4">
-      <div
-        className={`p-5 ${
-          needsDeposit
-            ? "brackets-accent text-[#032b2a] shadow-[0_14px_36px_rgba(10,186,181,0.18)]"
-            : "brackets"
-        }`}
-      >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <div
-              className={`mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] ${
-                needsDeposit ? "text-[#064947]" : "text-accent-2"
-              }`}
-            >
-              {needsDeposit ? "Deposit needed" : "Deposit USDC"}
-            </div>
-            <h2
-              className={`font-display text-xl font-bold ${
-                needsDeposit ? "text-[#032b2a]" : "text-text"
-              }`}
-            >
-              USDC deposit address
-            </h2>
-            <p
-              className={`mt-1 text-sm ${
-                needsDeposit ? "text-[#075654]" : "text-muted"
-              }`}
-            >
-              Use this account for vault USDC deposits.
-            </p>
-          </div>
-
-          <div className="min-w-0 flex-1 lg:max-w-3xl">
-            <div
-              className={`flex min-w-0 flex-col gap-3 border px-3 py-3 sm:flex-row sm:items-center ${
-                needsDeposit
-                  ? "border-[#075654]/35 bg-[rgba(3,43,42,0.1)]"
-                  : "border-line-soft bg-[rgba(2,10,12,0.7)]"
-              }`}
-            >
-              <code
-                className={`min-w-0 flex-1 break-all font-display text-sm ${
+      {showInitialDepositPanel && (
+        <div
+          className={`p-5 ${
+            needsDeposit
+              ? "brackets-accent text-[#032b2a] shadow-[0_14px_36px_rgba(10,186,181,0.18)]"
+              : "brackets"
+          }`}
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div
+                className={`mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] ${
+                  needsDeposit ? "text-[#064947]" : "text-accent-2"
+                }`}
+              >
+                {needsDeposit ? "Deposit needed" : "Deposit USDC"}
+              </div>
+              <h2
+                className={`font-display text-xl font-bold ${
                   needsDeposit ? "text-[#032b2a]" : "text-text"
                 }`}
               >
-                {depositAddress}
-              </code>
-              <CopyButton value={depositAddress} label="Copy address" tone={needsDeposit ? "dark" : "default"} />
+                USDC deposit address
+              </h2>
+              <p
+                className={`mt-1 text-sm ${
+                  needsDeposit ? "text-[#075654]" : "text-muted"
+                }`}
+              >
+                Copy the address or deposit directly from your connected wallet.
+              </p>
+            </div>
+
+            <div className="min-w-0 flex-1 lg:max-w-3xl">
+              <div
+                className={`flex min-w-0 flex-col gap-3 border px-3 py-3 sm:flex-row sm:items-center ${
+                  needsDeposit
+                    ? "border-[#075654]/35 bg-[rgba(3,43,42,0.1)]"
+                    : "border-line-soft bg-[rgba(2,10,12,0.7)]"
+                }`}
+              >
+                <code
+                  className={`min-w-0 flex-1 break-all font-display text-sm ${
+                    needsDeposit ? "text-[#032b2a]" : "text-text"
+                  }`}
+                >
+                  {depositAddress}
+                </code>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <CopyButton
+                    value={depositAddress}
+                    label="Copy address"
+                    tone={needsDeposit ? "dark" : "default"}
+                  />
+                  <button
+                    type="button"
+                    onClick={onTopUpUsdc}
+                    className={`shrink-0 border px-2.5 py-1 text-[0.62rem] uppercase tracking-[0.14em] transition-colors ${
+                      needsDeposit
+                        ? "border-[#075654]/35 text-[#032b2a] hover:border-[#032b2a]"
+                        : "border-line-soft text-accent-2 hover:border-line hover:text-text"
+                    }`}
+                  >
+                    Top up
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       <WithdrawPanel vault={vault} usdcBalance={usdcBalance} onChange={onChange} />
 
