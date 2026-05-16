@@ -30,7 +30,9 @@ Setup auto-finds `tandem-agent-keypair*.json` or the legacy
 `--agent-keypair <path>` for custom locations; add `--keep-keypair-path` if
 you want the config to continue pointing at that exact custom path.
 
-This writes local config to `~/.tandem/agent.json`.
+This writes local config to `~/.tandem/agent.json`, prints a short Tandem
+guide for the agent to follow immediately, and saves that guide to
+`~/.tandem/agent-instructions.md`.
 For mobile approval links, set `--app-url` to the deployed Tandem Wallet app
 URL. `localhost` links only work on the same machine running the app.
 

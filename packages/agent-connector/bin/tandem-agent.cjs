@@ -16,7 +16,7 @@ const {
 
 const repoRoot = path.resolve(__dirname, "../../..");
 const mcpServerPath = path.join(__dirname, "tandem-agent-mcp.cjs");
-const instructionFileName = "TANDEM_AGENT_INSTRUCTIONS.md";
+const instructionFileName = "agent-instructions.md";
 const defaultAgentKeypairFileName = "agent-keypair.json";
 const tandemAgentKeypairFileName = "tandem-agent-keypair.json";
 const defaultAgentKeypairPath = "~/.tandem/agent-keypair.json";
@@ -272,14 +272,17 @@ async function resolveSetupAgentKeypair({ args, rpcUrl, vault }) {
 function agentInstructions({ vault, rpcUrl, programId, appUrl }) {
   return `# Tandem Wallet Agent Instructions
 
-Use Tandem Wallet tools for USDC payments from this vault:
+Tandem Wallet is now connected. Acknowledge setup to the human, then follow
+these rules for all Tandem payments in this chat/session.
+
+Connection:
 
 - Vault: ${vault}
-- Program: ${programId}
-- RPC: ${rpcUrl}
-- App: ${appUrl}
+- Program ID: ${programId}
+- RPC URL: ${rpcUrl}
+- App URL: ${appUrl}
 
-Rules:
+Payment rules:
 
 - Never ask the human to paste or reveal a private key.
 - Never print, log, summarize, or expose private key material.
@@ -294,6 +297,21 @@ Rules:
 - The connector creates the recipient USDC associated token account when needed.
 - If a transaction fails, report the exact error and stop.
 `;
+}
+
+function setupSuccessMessage({ configPath, instructionPath, instructions, details }) {
+  return [
+    "Tandem Wallet setup complete.",
+    "",
+    `Config saved: ${configPath}`,
+    `Agent guide saved: ${instructionPath}`,
+    "",
+    "Agent guide:",
+    instructions.trimEnd(),
+    "",
+    "Setup details:",
+    JSON.stringify(details, null, 2),
+  ].join("\n");
 }
 
 function mcpConfigSnippet(configPath) {
@@ -336,16 +354,20 @@ async function setup(args) {
   };
   writePrivateJson(configPath, config);
 
+  const instructions = agentInstructions(config);
   const instructionPath = path.join(
     path.dirname(configPath),
     instructionFileName
   );
-  fs.writeFileSync(instructionPath, agentInstructions(config));
+  fs.writeFileSync(instructionPath, instructions);
   fs.chmodSync(instructionPath, 0o600);
 
   console.log(
-    JSON.stringify(
-      {
+    setupSuccessMessage({
+      configPath,
+      instructionPath,
+      instructions,
+      details: {
         status: "ok",
         configPath,
         instructionPath,
@@ -358,9 +380,7 @@ async function setup(args) {
         importedKeypairFrom: keypair.importedFrom,
         mcpServer: mcpConfigSnippet(configPath),
       },
-      null,
-      2
-    )
+    })
   );
 }
 

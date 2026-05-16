@@ -170,7 +170,8 @@ export function AgentConnectorPanel({
       <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted">
         Run this setup command in the agent environment. Setup finds the
         agent keypair file, verifies it matches this vault, and imports the
-        vault details for future payments.
+        vault details for future payments. It also prints a short guide the
+        agent can follow immediately.
       </p>
 
       <div className="mb-5 border border-line-soft bg-[rgba(2,10,12,0.52)] p-4 text-sm leading-relaxed text-muted">
@@ -300,10 +301,9 @@ export function AgentConnectorPanel({
             Additional Agent Instruction
           </p>
           <p className="max-w-2xl text-sm leading-relaxed text-muted">
-            These optional instructions are not required for Tandem to work,
-            but they can help guide an agent by explaining how it should behave
-            when sending payments, creating proposals, and checking proposal
-            status.
+            The setup command prints and saves these instructions automatically.
+            Use this copy if you need to refresh an agent&apos;s context or review
+            the payment rules manually.
           </p>
         </div>
         <div className="space-y-5">

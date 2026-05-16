@@ -1,6 +1,6 @@
 {
   "name": "@tandemwallet/agent",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Local Tandem Wallet SDK, CLI, and MCP server for AI agents.",
   "main": "src/index.cjs",
   "types": "src/index.d.ts",
