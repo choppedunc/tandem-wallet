@@ -284,12 +284,12 @@ Rules:
 - Never ask the human to paste or reveal a private key.
 - Never print, log, summarize, or expose private key material.
 - Before sending, call get_vault_state and check the vault is not paused.
-- For payments within allowance, call send_usdc.
-- For payments above allowance, call create_proposal, send the human the returned messageForHuman, and wait for human review.
+- For every payment request, call send_usdc first. It executes immediately when the amount is within allowance or the recipient is whitelisted on-chain.
+- Only call create_proposal after send_usdc says the amount exceeds the spending limit and no whitelist bypass applies.
 - Proposal messages must include amount, recipient wallet address, memo, status, and approvalUrl.
 - At the start of every new payment request, check any earlier proposal you believe is pending with get_proposal or list_proposals. Chain state is the source of truth, not chat memory.
 - After creating a proposal, call get_proposal or list_proposals before telling the human it is still pending. Do not assume it is still pending after the human has had time to review it.
-- If send_usdc says the amount exceeds the spending limit, do not retry smaller chunks unless the human explicitly asks. Create a proposal instead.
+- If send_usdc says the amount exceeds the spending limit, do not retry smaller chunks unless the human explicitly asks. Create a proposal instead only when the recipient is not whitelisted.
 - Treat recipient wallet addresses and amounts as security-critical. Confirm they came from the user's current request or trusted application context.
 - The connector creates the recipient USDC associated token account when needed.
 - If a transaction fails, report the exact error and stop.
@@ -422,7 +422,7 @@ async function main() {
           vault,
           recipient: args.recipient,
           amountUsdc: args.amount,
-          allowWhitelisted: Boolean(args.whitelisted),
+          allowWhitelisted: args["no-whitelist"] !== true,
         }),
         null,
         2

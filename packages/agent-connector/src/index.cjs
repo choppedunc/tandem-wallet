@@ -338,7 +338,12 @@ class TandemAgentClient {
     }
   }
 
-  async sendUsdc({ vault, recipient, amountUsdc, allowWhitelisted = false }) {
+  async findWhitelistEntry(vaultAddress, recipientWallet) {
+    const candidate = whitelistPda(this.programId, vaultAddress, recipientWallet);
+    return (await this.connection.getAccountInfo(candidate)) ? candidate : null;
+  }
+
+  async sendUsdc({ vault, recipient, amountUsdc, allowWhitelisted = true }) {
     const vaultAddress = new PublicKey(vault);
     const recipientWallet = new PublicKey(recipient);
     const amountRaw = parseUsdc(amountUsdc);
@@ -380,14 +385,10 @@ class TandemAgentClient {
 
     let whitelistEntry = null;
     if (allowWhitelisted) {
-      const candidate = whitelistPda(
-        this.programId,
+      whitelistEntry = await this.findWhitelistEntry(
         vaultAddress,
         recipientWallet
       );
-      if (await this.connection.getAccountInfo(candidate)) {
-        whitelistEntry = candidate;
-      }
     }
 
     if (
@@ -459,6 +460,15 @@ class TandemAgentClient {
     if (vaultAccount.paused) {
       throw new Error(
         "Vault is paused. Human must unpause before agent proposals can continue."
+      );
+    }
+    const whitelistEntry = await this.findWhitelistEntry(
+      vaultAddress,
+      recipientWallet
+    );
+    if (whitelistEntry) {
+      throw new Error(
+        `Recipient ${recipientWallet.toBase58()} is whitelisted for this vault. Use sendUsdc/send_usdc instead; no human proposal is required.`
       );
     }
 

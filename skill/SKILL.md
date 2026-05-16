@@ -100,4 +100,5 @@ All scripts output JSON. On success, the result is printed to stdout. On failure
 
 - Always verify recipient addresses before sending
 - Use `preview-send` before sending to preview the action
-- The agent can only spend up to the vault's spending limit autonomously — larger amounts require human approval
+- The agent can spend up to the vault's spending limit autonomously, and can bypass that limit for whitelisted recipients
+- Larger amounts to non-whitelisted recipients require human approval

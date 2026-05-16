@@ -33,7 +33,7 @@ const tools = [
   ),
   tool(
     "send_usdc",
-    "Send USDC from the vault within the configured allowance. Creates the recipient USDC associated token account when needed. Fails if above allowance.",
+    "Send USDC from the vault. Executes immediately when the amount is within allowance or the recipient is whitelisted on-chain. Creates the recipient USDC associated token account when needed. Fails only when approval is required.",
     {
       vault: {
         type: "string",
@@ -50,14 +50,14 @@ const tools = [
       allow_whitelisted: {
         type: "boolean",
         description:
-          "Allow over-limit send only if recipient is whitelisted on-chain.",
+          "Whether to use an on-chain whitelist bypass when present. Defaults to true.",
       },
     },
     ["recipient", "amount_usdc"]
   ),
   tool(
     "create_proposal",
-    "Create a human approval proposal for an above-allowance USDC payment. Returns approvalUrl and messageForHuman to share with the human.",
+    "Create a human approval proposal for a non-whitelisted above-allowance USDC payment. Do not call this before trying send_usdc. Returns approvalUrl and messageForHuman to share with the human.",
     {
       vault: {
         type: "string",
@@ -144,7 +144,7 @@ async function callTool(name, args = {}) {
         vault: vault(),
         recipient: args.recipient,
         amountUsdc: args.amount_usdc,
-        allowWhitelisted: Boolean(args.allow_whitelisted),
+        allowWhitelisted: args.allow_whitelisted !== false,
       })
     );
   }

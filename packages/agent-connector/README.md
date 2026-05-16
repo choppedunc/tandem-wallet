@@ -45,16 +45,18 @@ npx @tandemwallet/agent state
 The state output includes the agent wallet's SOL balance. If it is `0 SOL`,
 fund the agent wallet before sending or proposing transactions.
 
-Send within allowance:
+Send within allowance or to a whitelisted recipient:
 
 ```sh
 npx @tandemwallet/agent send --recipient <recipient_wallet> --amount 0.1
 ```
 
 If the recipient has never received this USDC mint before, the connector creates
-their associated token account before sending.
+their associated token account before sending. Whitelisted recipients bypass the
+allowance automatically, so above-allowance sends to those wallets execute
+without creating a proposal.
 
-Create a human approval proposal:
+Create a human approval proposal for a non-whitelisted above-allowance payment:
 
 ```sh
 npx @tandemwallet/agent propose \
@@ -100,5 +102,6 @@ Tools exposed:
 - Do not paste mainnet private keys into chats, prompts, or repo files.
 - Keep `agent-keypair.json` outside project folders.
 - The agent signer can spend within the vault policy limits.
-- Above-limit payments are proposals that require human approval.
+- Whitelisted recipients bypass the spending limit.
+- Above-limit payments to non-whitelisted recipients are proposals that require human approval.
 - If a transaction fails, stop and report the exact error.

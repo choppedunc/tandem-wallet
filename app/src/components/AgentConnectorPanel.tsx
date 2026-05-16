@@ -154,8 +154,8 @@ export function AgentConnectorPanel({
       [
         `Use Tandem Wallet for USDC payments from vault ${vaultAddress}.`,
         "Call get_vault_state before payment attempts.",
-        "Use send_usdc for payments within allowance.",
-        "Use create_proposal for payments above allowance.",
+        "Call send_usdc first for every payment. It executes immediately when the payment is within allowance or the recipient is whitelisted.",
+        "Use create_proposal only when send_usdc says approval is required for a non-whitelisted recipient.",
         "When create_proposal returns messageForHuman, send that to the human with the approval link.",
         "At the start of every new payment request, check any earlier pending proposal with get_proposal or list_proposals.",
         "Before saying a proposal is still pending, call get_proposal or list_proposals.",
@@ -355,7 +355,9 @@ export function AgentConnectorPanel({
               Allowance still matters
             </p>
             <p className="text-sm text-muted">
-              The agent signer can spend within the current vault policy limits.
+              The agent signer can spend within the current vault policy limits,
+              and can bypass that limit for whitelisted recipients. Other
+              above-limit payments become proposals for human review.
             </p>
           </div>
           <div className="border border-line-soft p-4">
