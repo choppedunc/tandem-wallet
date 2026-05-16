@@ -280,6 +280,7 @@ export function VaultDetail({
   const [statusBusy, setStatusBusy] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [historyFocusProposal, setHistoryFocusProposal] = useState<string | null>(null);
+  const [tabPanelResetKey, setTabPanelResetKey] = useState(0);
   const appliedInitialViewRef = useRef<string | null>(null);
   const balancesRefreshInFlightRef = useRef(false);
   const pendingRefreshInFlightRef = useRef(false);
@@ -296,6 +297,8 @@ export function VaultDetail({
     if (appliedInitialViewRef.current === key) return;
     appliedInitialViewRef.current = key;
     setTab(initialTab);
+    setHistoryFocusProposal(null);
+    setTabPanelResetKey((current) => current + 1);
   }, [initialProposal, initialTab, vault.address]);
 
   useEffect(() => {
@@ -315,6 +318,18 @@ export function VaultDetail({
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
+
+  const switchTab = useCallback(
+    (
+      nextTab: VaultTab,
+      options?: { focusHistoryProposal?: string | null }
+    ) => {
+      setHistoryFocusProposal(options?.focusHistoryProposal ?? null);
+      setTabPanelResetKey((current) => current + 1);
+      setTab(nextTab);
+    },
+    []
+  );
 
   const refreshBalances = useCallback(async () => {
     if (balancesRefreshInFlightRef.current) return;
@@ -823,7 +838,7 @@ export function VaultDetail({
           {tabs.map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => switchTab(t.id)}
               className={`inline-flex items-center gap-2 px-4 py-3 text-xs font-display uppercase tracking-[0.14em] border-b-2 transition-colors ${
                 tab === t.id
                   ? "border-accent text-text"
@@ -844,51 +859,52 @@ export function VaultDetail({
         </nav>
       </div>
 
-      {tab === "overview" && (
-        <VaultOverview
-          vault={vault}
-          usdcBalance={usdcBalance}
-          onTopUpUsdc={() => openActionModal("usdc")}
-        />
-      )}
-      {tab === "funds" && (
-        <FundsPanel
-          vault={vault}
-          usdcBalance={usdcBalance}
-          agentSolBalance={agentSolBalance}
-          onChange={handleChange}
-          onTopUpUsdc={() => openActionModal("usdc")}
-          onTopUpSol={() => openActionModal("sol")}
-          onNotify={showToast}
-        />
-      )}
-      {tab === "proposals" && (
-        <ProposalsPanel
-          vault={vault}
-          onChange={handleChange}
-          initialProposal={initialProposal}
-          onNotify={showToast}
-          onOpenHistory={(proposalKey) => {
-            setHistoryFocusProposal(proposalKey);
-            setTab("history");
-          }}
-        />
-      )}
-      {tab === "history" && (
-        <ProposalHistoryPanel
-          vault={vault}
-          focusedProposal={historyFocusProposal ?? initialProposal ?? null}
-        />
-      )}
-      {tab === "whitelist" && <WhitelistPanel vault={vault} />}
-      {tab === "agent" && (
-        <AgentConnectorPanel
-          vault={vault}
-          commandCopied={agentCommandCopied}
-          needsAgentSolTopUp={needsAgentSolTopUp}
-          onCommandCopied={markAgentCommandCopied}
-        />
-      )}
+      <div key={`${vault.address.toBase58()}:${tab}:${tabPanelResetKey}`}>
+        {tab === "overview" && (
+          <VaultOverview
+            vault={vault}
+            usdcBalance={usdcBalance}
+            onTopUpUsdc={() => openActionModal("usdc")}
+          />
+        )}
+        {tab === "funds" && (
+          <FundsPanel
+            vault={vault}
+            usdcBalance={usdcBalance}
+            agentSolBalance={agentSolBalance}
+            onChange={handleChange}
+            onTopUpUsdc={() => openActionModal("usdc")}
+            onTopUpSol={() => openActionModal("sol")}
+            onNotify={showToast}
+          />
+        )}
+        {tab === "proposals" && (
+          <ProposalsPanel
+            vault={vault}
+            onChange={handleChange}
+            initialProposal={initialProposal}
+            onNotify={showToast}
+            onOpenHistory={(proposalKey) => {
+              switchTab("history", { focusHistoryProposal: proposalKey });
+            }}
+          />
+        )}
+        {tab === "history" && (
+          <ProposalHistoryPanel
+            vault={vault}
+            focusedProposal={historyFocusProposal}
+          />
+        )}
+        {tab === "whitelist" && <WhitelistPanel vault={vault} />}
+        {tab === "agent" && (
+          <AgentConnectorPanel
+            vault={vault}
+            commandCopied={agentCommandCopied}
+            needsAgentSolTopUp={needsAgentSolTopUp}
+            onCommandCopied={markAgentCommandCopied}
+          />
+        )}
+      </div>
 
       {actionModal === "usdc" && (
         <ActionModalShell

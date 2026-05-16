@@ -550,7 +550,6 @@ export function ProposalHistoryPanel({
     const focusKey = `${vault.address.toBase58()}:${focusedProposal}`;
     if (appliedFocusedProposalRef.current === focusKey) return;
     appliedFocusedProposalRef.current = focusKey;
-    setExpandedItem(focusedProposal);
     window.requestAnimationFrame(() => {
       document
         .getElementById(`history-${focusedProposal}`)
