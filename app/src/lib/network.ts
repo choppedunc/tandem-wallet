@@ -16,3 +16,8 @@ export const WALLET_NETWORK: WalletAdapterNetwork =
   NETWORK === "mainnet-beta"
     ? WalletAdapterNetwork.Mainnet
     : WalletAdapterNetwork.Devnet;
+
+export function explorerTxUrl(signature: string): string {
+  const cluster = NETWORK === "mainnet-beta" ? "" : `?cluster=${NETWORK}`;
+  return `https://explorer.solana.com/tx/${signature}${cluster}`;
+}

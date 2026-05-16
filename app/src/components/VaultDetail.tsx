@@ -18,10 +18,12 @@ import BN from "bn.js";
 import {
   formatUsdc,
   formatSol,
+  rawUsdcToInput,
   rawToUsdc,
   shortAddress,
   usdcToRaw,
 } from "@/lib/format";
+import { explorerTxUrl } from "@/lib/network";
 import { getProgram } from "@/lib/program";
 import { FundsPanel, VaultOverview } from "./VaultOverview";
 import { ProposalHistoryPanel } from "./ProposalHistoryPanel";
@@ -29,6 +31,7 @@ import { ProposalsPanel } from "./ProposalsPanel";
 import { WhitelistPanel } from "./WhitelistPanel";
 import { AgentConnectorPanel } from "./AgentConnectorPanel";
 import { AttentionPulse } from "./AttentionPulse";
+import { ToastStack, type ToastNotification } from "./ToastStack";
 
 export type VaultData = {
   address: PublicKey;
@@ -55,6 +58,18 @@ const AGENT_COMMAND_COPIED_STORAGE_KEY = "tandem:agent-command-copied:v1";
 
 type ActionModal = "usdc" | "sol" | "limit" | null;
 
+type DirectSendNotificationPayload = {
+  directSends?: {
+    id: string;
+    signature: string;
+    signer: string;
+    recipient: string;
+    amount: string;
+    blockTime: number | null;
+    whitelisted: boolean;
+  }[];
+};
+
 function normalizeActionError(error: unknown): string {
   if (typeof error === "object" && error !== null) {
     const maybeError = error as {
@@ -70,12 +85,15 @@ function normalizeActionError(error: unknown): string {
   return String(error);
 }
 
-function shortSignature(signature: string): string {
-  return `${signature.slice(0, 8)}...${signature.slice(-8)}`;
-}
-
 function agentCommandCopiedKey(vaultAddress: PublicKey): string {
   return `${AGENT_COMMAND_COPIED_STORAGE_KEY}:${vaultAddress.toBase58()}`;
+}
+
+function createToastId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}:${Math.random().toString(36).slice(2)}`;
 }
 
 function loadAgentCommandCopied(vaultAddress: PublicKey): boolean {
@@ -233,6 +251,7 @@ export function VaultDetail({
   const [agentCommandCopied, setAgentCommandCopied] = useState(false);
   const [actionModal, setActionModal] = useState<ActionModal>(null);
   const [usdcTopUpAmount, setUsdcTopUpAmount] = useState("");
+  const [walletUsdcBalance, setWalletUsdcBalance] = useState<bigint | null>(null);
   const [solTopUpAmount, setSolTopUpAmount] = useState("");
   const [limitInput, setLimitInput] = useState(
     rawToUsdc(vault.spendingLimit).toString()
@@ -241,10 +260,15 @@ export function VaultDetail({
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [statusBusy, setStatusBusy] = useState(false);
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  const [historyFocusProposal, setHistoryFocusProposal] = useState<string | null>(null);
   const appliedInitialViewRef = useRef<string | null>(null);
   const balancesRefreshInFlightRef = useRef(false);
   const pendingRefreshInFlightRef = useRef(false);
   const liveRefreshTimerRef = useRef<number | null>(null);
+  const directSendSeenIdsRef = useRef<Set<string>>(new Set());
+  const directSendMonitorReadyRef = useRef(false);
+  const directSendMonitorInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!initialTab) return;
@@ -263,6 +287,16 @@ export function VaultDetail({
   useEffect(() => {
     setAgentCommandCopied(loadAgentCommandCopied(vault.address));
   }, [vault.address]);
+
+  const showToast = useCallback((toast: Omit<ToastNotification, "id">) => {
+    setToasts((current) =>
+      [...current, { ...toast, id: createToastId() }].slice(-4)
+    );
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
 
   const refreshBalances = useCallback(async () => {
     if (balancesRefreshInFlightRef.current) return;
@@ -303,10 +337,92 @@ export function VaultDetail({
     }
   }, [connection, vault.address, wallet]);
 
+  const refreshWalletUsdcBalance = useCallback(async () => {
+    if (!wallet) {
+      setWalletUsdcBalance(null);
+      return;
+    }
+
+    try {
+      const sourceAta = getAssociatedTokenAddressSync(
+        vault.usdcMint,
+        wallet.publicKey
+      );
+      const sourceAccount = await getAccount(connection, sourceAta);
+      setWalletUsdcBalance(sourceAccount.amount);
+    } catch {
+      setWalletUsdcBalance(BigInt(0));
+    }
+  }, [connection, vault.usdcMint, wallet]);
+
+  const checkDirectSendNotifications = useCallback(async () => {
+    if (directSendMonitorInFlightRef.current) return;
+    directSendMonitorInFlightRef.current = true;
+
+    try {
+      const response = await fetch(
+        `/api/vault-history?vault=${vault.address.toBase58()}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) return;
+
+      const payload = (await response.json()) as DirectSendNotificationPayload;
+      const agentSends = (payload.directSends ?? [])
+        .filter((transfer) => transfer.signer === vault.agent.toBase58())
+        .sort((a, b) => (a.blockTime ?? 0) - (b.blockTime ?? 0));
+
+      if (!directSendMonitorReadyRef.current) {
+        agentSends.forEach((transfer) =>
+          directSendSeenIdsRef.current.add(transfer.id)
+        );
+        directSendMonitorReadyRef.current = true;
+        return;
+      }
+
+      agentSends.forEach((transfer) => {
+        if (directSendSeenIdsRef.current.has(transfer.id)) return;
+        directSendSeenIdsRef.current.add(transfer.id);
+        showToast({
+          title: transfer.whitelisted
+            ? "Whitelist payment sent"
+            : "Allowance payment sent",
+          message: `${formatUsdc(BigInt(transfer.amount))} to ${shortAddress(
+            transfer.recipient,
+            6
+          )}.`,
+          actionLabel: "View in Explorer",
+          href: explorerTxUrl(transfer.signature),
+          external: true,
+        });
+      });
+    } catch {
+      // Live direct-send notifications are best-effort; history still shows them.
+    } finally {
+      directSendMonitorInFlightRef.current = false;
+    }
+  }, [showToast, vault.address, vault.agent]);
+
+  useEffect(() => {
+    directSendSeenIdsRef.current = new Set();
+    directSendMonitorReadyRef.current = false;
+    directSendMonitorInFlightRef.current = false;
+  }, [vault.address]);
+
   useEffect(() => {
     refreshBalances();
     refreshPendingProposalCount();
-  }, [refreshBalances, refreshPendingProposalCount]);
+    void checkDirectSendNotifications();
+  }, [
+    checkDirectSendNotifications,
+    refreshBalances,
+    refreshPendingProposalCount,
+  ]);
+
+  useEffect(() => {
+    if (actionModal === "usdc") {
+      void refreshWalletUsdcBalance();
+    }
+  }, [actionModal, refreshWalletUsdcBalance]);
 
   useEffect(() => {
     let cancelled = false;
@@ -315,6 +431,7 @@ export function VaultDetail({
       if (cancelled) return;
       void refreshBalances();
       void refreshPendingProposalCount();
+      void checkDirectSendNotifications();
     };
     const scheduleLiveStateRefresh = () => {
       if (cancelled) return;
@@ -363,6 +480,7 @@ export function VaultDetail({
   }, [
     connection,
     onChange,
+    checkDirectSendNotifications,
     refreshBalances,
     refreshPendingProposalCount,
     vault.agent,
@@ -383,6 +501,9 @@ export function VaultDetail({
   function openActionModal(modal: Exclude<ActionModal, null>) {
     setActionError(null);
     setActionSuccess(null);
+    if (modal === "usdc") {
+      setWalletUsdcBalance(null);
+    }
     setActionModal(modal);
   }
 
@@ -415,6 +536,7 @@ export function VaultDetail({
       let sourceAccount;
       try {
         sourceAccount = await getAccount(connection, sourceAta);
+        setWalletUsdcBalance(sourceAccount.amount);
       } catch {
         throw new Error(
           "Connected wallet does not have a USDC token account for this mint."
@@ -449,14 +571,20 @@ export function VaultDetail({
       );
 
       setUsdcTopUpAmount("");
+      setWalletUsdcBalance((current) =>
+        current === null ? current : current - amountRawBigInt
+      );
       setUsdcBalance((current) =>
         current === null ? current : current + amountRawBigInt
       );
-      setActionSuccess(
-        `${formatUsdc(amountRawBigInt)} deposited. Tx: ${shortSignature(
-          signature
-        )}`
-      );
+      showToast({
+        title: "Deposit successful",
+        message: `${formatUsdc(amountRawBigInt)} deposited into the vault.`,
+        actionLabel: "View in Explorer",
+        href: explorerTxUrl(signature),
+        external: true,
+      });
+      setActionModal(null);
       window.setTimeout(() => {
         void refreshBalances();
         onChange();
@@ -508,11 +636,14 @@ export function VaultDetail({
       setAgentSolBalance((current) =>
         current === null ? current : current + lamports
       );
-      setActionSuccess(
-        `${formatSol(lamports)} sent to the agent wallet. Tx: ${shortSignature(
-          signature
-        )}`
-      );
+      showToast({
+        title: "Top up successful",
+        message: `${formatSol(lamports)} sent to the agent wallet.`,
+        actionLabel: "View in Explorer",
+        href: explorerTxUrl(signature),
+        external: true,
+      });
+      setActionModal(null);
       window.setTimeout(() => {
         void refreshBalances();
         onChange();
@@ -709,6 +840,7 @@ export function VaultDetail({
           onChange={handleChange}
           onTopUpUsdc={() => openActionModal("usdc")}
           onTopUpSol={() => openActionModal("sol")}
+          onNotify={showToast}
         />
       )}
       {tab === "proposals" && (
@@ -716,9 +848,19 @@ export function VaultDetail({
           vault={vault}
           onChange={handleChange}
           initialProposal={initialProposal}
+          onNotify={showToast}
+          onOpenHistory={(proposalKey) => {
+            setHistoryFocusProposal(proposalKey);
+            setTab("history");
+          }}
         />
       )}
-      {tab === "history" && <ProposalHistoryPanel vault={vault} />}
+      {tab === "history" && (
+        <ProposalHistoryPanel
+          vault={vault}
+          focusedProposal={historyFocusProposal ?? initialProposal ?? null}
+        />
+      )}
       {tab === "whitelist" && <WhitelistPanel vault={vault} />}
       {tab === "agent" && (
         <AgentConnectorPanel
@@ -752,8 +894,13 @@ export function VaultDetail({
           </div>
           <form onSubmit={depositUsdc} className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <label className="block">
-              <span className="mb-2 block text-[0.65rem] uppercase tracking-[0.16em] text-muted font-display">
-                Amount
+              <span className="mb-2 flex items-center justify-between gap-3 text-[0.65rem] uppercase tracking-[0.16em] text-muted font-display">
+                <span>Amount</span>
+                <span>
+                  {walletUsdcBalance === null
+                    ? "Checking wallet"
+                    : `Wallet ${formatUsdc(walletUsdcBalance)}`}
+                </span>
               </span>
               <div className="relative">
                 <input
@@ -762,8 +909,24 @@ export function VaultDetail({
                   step="0.000001"
                   value={usdcTopUpAmount}
                   onChange={(event) => setUsdcTopUpAmount(event.target.value)}
-                  className="w-full border border-line-soft bg-[rgba(2,10,12,0.7)] px-3 py-2.5 pr-16 font-display text-sm text-text focus:outline-none focus:border-line"
+                  className="w-full border border-line-soft bg-[rgba(2,10,12,0.7)] px-3 py-2.5 pr-28 font-display text-sm text-text focus:outline-none focus:border-line"
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (walletUsdcBalance !== null) {
+                      setUsdcTopUpAmount(rawUsdcToInput(walletUsdcBalance));
+                    }
+                  }}
+                  disabled={
+                    walletUsdcBalance === null ||
+                    walletUsdcBalance === BigInt(0) ||
+                    actionBusy === "usdc"
+                  }
+                  className="absolute right-16 top-1/2 -translate-y-1/2 border border-line-soft px-1.5 py-0.5 text-[0.58rem] font-display uppercase tracking-[0.12em] text-accent-2 hover:border-line hover:text-text disabled:opacity-40"
+                >
+                  MAX
+                </button>
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[0.65rem] uppercase tracking-[0.12em] text-muted font-display">
                   USDC
                 </span>
@@ -900,6 +1063,7 @@ export function VaultDetail({
           )}
         </ActionModalShell>
       )}
+      <ToastStack toasts={toasts} onClose={dismissToast} />
     </div>
   );
 }

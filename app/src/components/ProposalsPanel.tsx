@@ -17,6 +17,7 @@ import { saveProposalTransaction } from "@/lib/proposalTransactions";
 import { protocolConfigPda } from "@/lib/pdas";
 import { formatUsdc, shortAddress } from "@/lib/format";
 import type { VaultData } from "./VaultDetail";
+import type { ToastNotification } from "./ToastStack";
 
 type Proposal = {
   pda: PublicKey;
@@ -34,13 +35,6 @@ type ProtocolConfigView = {
   feeBps: number;
   stakerRewardAta: PublicKey;
   treasuryAta: PublicKey;
-};
-
-type LastTransaction = {
-  action: "approved" | "cancelled";
-  proposalKey: string;
-  signature: string;
-  setupSignature?: string;
 };
 
 type ReviewAction = {
@@ -63,11 +57,6 @@ function rawToBigInt(value: BN | bigint | number): bigint {
 
 function calculateFee(amount: BN, feeBps: number): bigint {
   return (rawToBigInt(amount) * BigInt(feeBps)) / BigInt(10_000);
-}
-
-function explorerTxUrl(signature: string): string {
-  const cluster = NETWORK === "mainnet-beta" ? "" : `?cluster=${NETWORK}`;
-  return `https://explorer.solana.com/tx/${signature}${cluster}`;
 }
 
 function formatDate(rawTimestamp: BN): string {
@@ -168,14 +157,29 @@ function Metric({
   );
 }
 
+function AdvancedData({ children }: { children: React.ReactNode }) {
+  return (
+    <details className="group mt-4 border border-line-soft bg-[rgba(2,10,12,0.45)] px-4">
+      <summary className="cursor-pointer list-none py-3 font-display text-[0.65rem] uppercase tracking-[0.18em] text-muted transition-colors hover:text-text">
+        Advanced Data
+      </summary>
+      <div className="border-t border-line-soft pb-1">{children}</div>
+    </details>
+  );
+}
+
 export function ProposalsPanel({
   vault,
   onChange,
   initialProposal,
+  onNotify,
+  onOpenHistory,
 }: {
   vault: VaultData;
   onChange: () => void;
   initialProposal?: string | null;
+  onNotify: (toast: Omit<ToastNotification, "id">) => void;
+  onOpenHistory: (proposalKey: string) => void;
 }) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
@@ -186,7 +190,6 @@ export function ProposalsPanel({
   const [recipientAtaExists, setRecipientAtaExists] = useState<boolean | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lastTransaction, setLastTransaction] = useState<LastTransaction | null>(null);
   const [reviewAction, setReviewAction] = useState<ReviewAction | null>(null);
   const appliedInitialProposalRef = useRef<string | null>(null);
   const refreshInFlightRef = useRef(false);
@@ -339,10 +342,10 @@ export function ProposalsPanel({
   async function approve(proposal: Proposal) {
     if (!program || !protocolConfig) return;
     const proposalKey = proposal.pda.toBase58();
+    const queueWillBeCleared = visible.length <= 1;
     setReviewAction(null);
     setBusy(`approve:${proposalKey}`);
     setError(null);
-    setLastTransaction(null);
     try {
       const approvedDebit =
         rawToBigInt(proposal.amount) +
@@ -399,16 +402,18 @@ export function ProposalsPanel({
         })
         .rpc();
 
-      setLastTransaction({
-        action: "approved",
-        proposalKey,
-        signature,
-        setupSignature,
-      });
       saveProposalTransaction(proposalKey, {
         action: "approved",
         signature,
         setupSignature,
+      });
+      onNotify({
+        title: "Approval signed",
+        message: `Proposal #${proposal.proposalId.toString()} approved for ${formatUsdc(
+          proposal.amount
+        )}.`,
+        actionLabel: "Open in History",
+        onActivate: () => onOpenHistory(proposalKey),
       });
       setProposals((current) =>
         current
@@ -426,6 +431,9 @@ export function ProposalsPanel({
         void refresh();
         onChange();
       }, LIVE_REFRESH_DEBOUNCE_MS);
+      if (queueWillBeCleared) {
+        onOpenHistory(proposalKey);
+      }
     } catch (error) {
       setError(normalizeError(error));
     } finally {
@@ -436,10 +444,10 @@ export function ProposalsPanel({
   async function cancel(proposal: Proposal) {
     if (!program) return;
     const proposalKey = proposal.pda.toBase58();
+    const queueWillBeCleared = visible.length <= 1;
     setReviewAction(null);
     setBusy(`cancel:${proposalKey}`);
     setError(null);
-    setLastTransaction(null);
     try {
       const signature = await program.methods
         .cancelProposal()
@@ -450,14 +458,15 @@ export function ProposalsPanel({
         })
         .rpc();
 
-      setLastTransaction({
-        action: "cancelled",
-        proposalKey,
-        signature,
-      });
       saveProposalTransaction(proposalKey, {
         action: "cancelled",
         signature,
+      });
+      onNotify({
+        title: "Proposal rejected",
+        message: `Proposal #${proposal.proposalId.toString()} was rejected.`,
+        actionLabel: "Open in History",
+        onActivate: () => onOpenHistory(proposalKey),
       });
       setProposals((current) =>
         current
@@ -472,6 +481,9 @@ export function ProposalsPanel({
         void refresh();
         onChange();
       }, LIVE_REFRESH_DEBOUNCE_MS);
+      if (queueWillBeCleared) {
+        onOpenHistory(proposalKey);
+      }
     } catch (error) {
       setError(normalizeError(error));
     } finally {
@@ -550,40 +562,6 @@ export function ProposalsPanel({
       {error && (
         <div className="border border-line p-3 text-sm text-accent-2 bg-[rgba(10,186,181,0.06)]">
           {error}
-        </div>
-      )}
-
-      {lastTransaction && (
-        <div className="border border-line-soft bg-[rgba(3,17,19,0.78)] p-4 text-sm">
-          <div className="font-display text-accent-2 uppercase tracking-[0.14em] text-xs">
-            Proposal {lastTransaction.action}
-          </div>
-          <div className="mt-2 grid gap-1 text-xs font-display">
-            <span className="text-muted uppercase tracking-[0.14em]">
-              Transaction ID
-            </span>
-            <span className="break-all text-text">{lastTransaction.signature}</span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            {lastTransaction.setupSignature && (
-              <a
-                href={explorerTxUrl(lastTransaction.setupSignature)}
-                target="_blank"
-                rel="noreferrer"
-                className="text-muted hover:text-text underline underline-offset-4"
-              >
-                Token account setup
-              </a>
-            )}
-            <a
-              href={explorerTxUrl(lastTransaction.signature)}
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent hover:text-text underline underline-offset-4"
-            >
-              View transaction
-            </a>
-          </div>
         </div>
       )}
 
@@ -681,8 +659,19 @@ export function ProposalsPanel({
 
               <div className="mt-5 border-y border-line-soft">
                 <DetailRow
-                  label="Recipient wallet"
+                  label="Recipient"
                   value={selectedProposal.recipient.toBase58()}
+                />
+                <DetailRow
+                  label="Memo"
+                  value={selectedProposal.memo || "No memo supplied"}
+                />
+              </div>
+
+              <AdvancedData>
+                <DetailRow
+                  label="Proposal PDA"
+                  value={selectedProposal.pda.toBase58()}
                 />
                 <DetailRow
                   label="Recipient USDC"
@@ -690,10 +679,7 @@ export function ProposalsPanel({
                 />
                 <DetailRow label="Agent" value={vault.agent.toBase58()} />
                 <DetailRow label="Vault" value={vault.address.toBase58()} />
-                <DetailRow
-                  label="Memo"
-                  value={selectedProposal.memo || "No memo supplied"}
-                />
+                <DetailRow label="USDC mint" value={vault.usdcMint.toBase58()} />
                 <DetailRow
                   label="Readiness"
                   value={
@@ -707,7 +693,7 @@ export function ProposalsPanel({
                   }
                   tone={!recipientAtaMatches ? "warning" : "accent"}
                 />
-              </div>
+              </AdvancedData>
 
               {selectedStatus === "pending" && (
                 <div className="mt-5">
@@ -805,18 +791,32 @@ export function ProposalsPanel({
               </div>
 
               <div className="mt-5 border-y border-line-soft">
-                <DetailRow label="Network" value={NETWORK} />
                 <DetailRow
                   label="Proposal"
-                  value={`#${selectedProposal.proposalId.toString()} / ${selectedProposal.pda.toBase58()}`}
+                  value={`#${selectedProposal.proposalId.toString()}`}
                 />
-                <DetailRow label="Vault" value={vault.address.toBase58()} />
-                <DetailRow label="Human signer" value={wallet?.publicKey.toBase58() ?? ""} />
-                <DetailRow label="Agent" value={vault.agent.toBase58()} />
                 <DetailRow
-                  label="Recipient wallet"
+                  label="Recipient"
                   value={selectedProposal.recipient.toBase58()}
                 />
+                <DetailRow
+                  label="Memo"
+                  value={selectedProposal.memo || "No memo supplied"}
+                />
+              </div>
+
+              <AdvancedData>
+                <DetailRow label="Network" value={NETWORK} />
+                <DetailRow
+                  label="Proposal PDA"
+                  value={selectedProposal.pda.toBase58()}
+                />
+                <DetailRow label="Vault" value={vault.address.toBase58()} />
+                <DetailRow
+                  label="Human signer"
+                  value={wallet?.publicKey.toBase58() ?? ""}
+                />
+                <DetailRow label="Agent" value={vault.agent.toBase58()} />
                 <DetailRow
                   label="Recipient USDC"
                   value={selectedProposal.recipientAta.toBase58()}
@@ -833,11 +833,7 @@ export function ProposalsPanel({
                     />
                   </>
                 )}
-                <DetailRow
-                  label="Memo"
-                  value={selectedProposal.memo || "No memo supplied"}
-                />
-              </div>
+              </AdvancedData>
 
               {reviewAction.type === "approve" && approveBlockedReason && (
                 <div className="mt-4 border border-line-soft bg-[rgba(10,186,181,0.04)] p-3 text-sm text-muted">

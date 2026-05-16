@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
@@ -369,7 +369,13 @@ function ExpandedDirectSendDetails({
   );
 }
 
-export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
+export function ProposalHistoryPanel({
+  vault,
+  focusedProposal,
+}: {
+  vault: VaultData;
+  focusedProposal?: string | null;
+}) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
@@ -377,6 +383,7 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
   const [transactions, setTransactions] = useState<Record<string, HistoryProposalTransaction>>({});
   const [error, setError] = useState<string | null>(null);
   const [scanWarning, setScanWarning] = useState<string | null>(null);
+  const appliedFocusedProposalRef = useRef<string | null>(null);
 
   const program = useMemo(
     () => (wallet ? getProgram(connection, wallet) : null),
@@ -530,6 +537,27 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!focusedProposal || !rows) return;
+    if (
+      !rows.some(
+        (row) => row.kind === "proposal" && row.proposal.pda.toBase58() === focusedProposal
+      )
+    ) {
+      return;
+    }
+
+    const focusKey = `${vault.address.toBase58()}:${focusedProposal}`;
+    if (appliedFocusedProposalRef.current === focusKey) return;
+    appliedFocusedProposalRef.current = focusKey;
+    setExpandedItem(focusedProposal);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`history-${focusedProposal}`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  }, [focusedProposal, rows, vault.address]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -636,7 +664,11 @@ export function ProposalHistoryPanel({ vault }: { vault: VaultData }) {
             const transaction = transactions[proposalKey];
 
             return (
-              <div key={row.id} className={historyCardClass(expanded)}>
+              <div
+                key={row.id}
+                id={`history-${proposalKey}`}
+                className={historyCardClass(expanded)}
+              >
                 <div
                   role="button"
                   tabIndex={0}

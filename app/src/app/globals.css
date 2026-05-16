@@ -134,6 +134,20 @@ h3,
   transform: translateY(0);
 }
 
+.toast-progress {
+  animation: toast-progress var(--toast-duration, 15000ms) linear forwards;
+  transform-origin: left;
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
 /* Override wallet-adapter button to match design */
 .wallet-adapter-button {
   font-family: var(--font-sans) !important;

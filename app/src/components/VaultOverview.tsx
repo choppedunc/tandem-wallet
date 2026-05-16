@@ -11,8 +11,10 @@ import {
 } from "@solana/spl-token";
 import { getProgram } from "@/lib/program";
 import { protocolConfigPda } from "@/lib/pdas";
-import { formatSol, formatUsdc, usdcToRaw } from "@/lib/format";
+import { formatSol, formatUsdc, rawUsdcToInput, usdcToRaw } from "@/lib/format";
+import { explorerTxUrl } from "@/lib/network";
 import type { VaultData } from "./VaultDetail";
+import type { ToastNotification } from "./ToastStack";
 import { AttentionPulse } from "./AttentionPulse";
 
 const ONE_USDC_RAW = BigInt(1_000_000);
@@ -101,13 +103,6 @@ function normalizeWithdrawError(error: unknown): string {
   return String(error);
 }
 
-function rawUsdcToInput(raw: bigint): string {
-  const whole = raw / ONE_USDC_RAW;
-  const fraction = raw % ONE_USDC_RAW;
-  if (fraction === BigInt(0)) return whole.toString();
-  return `${whole}.${fraction.toString().padStart(6, "0").replace(/0+$/, "")}`;
-}
-
 function totalWithFee(rawAmount: bigint, feeBps: number): bigint {
   return rawAmount + (rawAmount * BigInt(feeBps)) / BigInt(10_000);
 }
@@ -132,10 +127,12 @@ function WithdrawPanel({
   vault,
   usdcBalance,
   onChange,
+  onNotify,
 }: {
   vault: VaultData;
   usdcBalance: bigint | null;
   onChange: () => void;
+  onNotify: (toast: Omit<ToastNotification, "id">) => void;
 }) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
@@ -145,7 +142,6 @@ function WithdrawPanel({
   const [feeBps, setFeeBps] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (walletAddress) {
@@ -185,7 +181,6 @@ function WithdrawPanel({
     if (!wallet) return;
     setBusy(true);
     setError(null);
-    setSuccess(null);
 
     try {
       if (!wallet.publicKey.equals(vault.human)) {
@@ -258,11 +253,15 @@ function WithdrawPanel({
         .rpc();
 
       setAmount("");
-      setSuccess(
-        `${formatUsdc(amountRawBigInt)} withdrawn. Fee: ${formatUsdc(feeRaw)}.${
-          setupSignature ? " Recipient USDC account was created first." : ""
-        } Tx: ${signature}`
-      );
+      onNotify({
+        title: "Withdraw successful",
+        message: `${formatUsdc(amountRawBigInt)} withdrawn. Fee ${formatUsdc(feeRaw)}.${
+          setupSignature ? " Recipient account created." : ""
+        }`,
+        actionLabel: "View in Explorer",
+        href: explorerTxUrl(signature),
+        external: true,
+      });
       onChange();
     } catch (withdrawError) {
       setError(normalizeWithdrawError(withdrawError));
@@ -337,11 +336,6 @@ function WithdrawPanel({
       {error && (
         <div className="mt-4 border border-line p-3 text-sm text-accent-2 bg-[rgba(10,186,181,0.06)]">
           {error}
-        </div>
-      )}
-      {success && (
-        <div className="mt-4 break-all border border-line-soft p-3 text-sm text-muted bg-[rgba(10,186,181,0.04)]">
-          {success}
         </div>
       )}
     </div>
@@ -469,6 +463,7 @@ export function FundsPanel({
   onChange,
   onTopUpUsdc,
   onTopUpSol,
+  onNotify,
 }: {
   vault: VaultData;
   usdcBalance: bigint | null;
@@ -476,6 +471,7 @@ export function FundsPanel({
   onChange: () => void;
   onTopUpUsdc: () => void;
   onTopUpSol: () => void;
+  onNotify: (toast: Omit<ToastNotification, "id">) => void;
 }) {
   const usdcDepositAddress = vault.vaultUsdcAta.toBase58();
   const agentAddress = vault.agent.toBase58();
@@ -565,7 +561,12 @@ export function FundsPanel({
         </section>
       </div>
 
-      <WithdrawPanel vault={vault} usdcBalance={usdcBalance} onChange={onChange} />
+      <WithdrawPanel
+        vault={vault}
+        usdcBalance={usdcBalance}
+        onChange={onChange}
+        onNotify={onNotify}
+      />
     </div>
   );
 }
