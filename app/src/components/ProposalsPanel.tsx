@@ -862,7 +862,7 @@ export function ProposalsPanel({
                   <button
                     type="button"
                     onClick={() => cancel(selectedProposal)}
-                    className="border border-line-soft px-4 py-2 text-sm font-display font-bold uppercase tracking-[0.14em] text-text hover:border-line"
+                    className="border border-[#d45f67]/65 bg-[rgba(212,95,103,0.12)] px-4 py-2 text-sm font-display font-bold uppercase tracking-[0.14em] text-[#f2b1b6] transition-colors hover:border-[#d45f67] hover:bg-[rgba(212,95,103,0.2)] hover:text-[#ffd7da]"
                   >
                     Sign rejection
                   </button>
