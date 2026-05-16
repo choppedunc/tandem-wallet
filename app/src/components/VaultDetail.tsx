@@ -187,6 +187,7 @@ function Stat({
   label,
   value,
   accent,
+  tone = "default",
   actionLabel,
   actionDisabled,
   onAction,
@@ -196,16 +197,29 @@ function Stat({
   label: string;
   value: React.ReactNode;
   accent?: string;
+  tone?: "default" | "danger";
   actionLabel?: string;
   actionDisabled?: boolean;
   onAction?: () => void;
   attention?: boolean;
   attentionLabel?: string;
 }) {
+  const isDanger = tone === "danger";
+
   return (
-    <div className="border border-line-soft px-4 py-3 bg-[rgba(3,17,19,0.7)]">
+    <div
+      className={`border px-4 py-3 ${
+        isDanger
+          ? "border-[#d45f67]/55 bg-[rgba(58,23,25,0.58)]"
+          : "border-line-soft bg-[rgba(3,17,19,0.7)]"
+      }`}
+    >
       <div className="mb-2 flex min-h-8 items-start justify-between gap-3">
-        <div className="text-[0.65rem] uppercase tracking-[0.18em] text-muted font-display">
+        <div
+          className={`text-[0.65rem] uppercase tracking-[0.18em] font-display ${
+            isDanger ? "text-[#f2b1b6]" : "text-muted"
+          }`}
+        >
           {label}
         </div>
         {actionLabel && onAction ? (
@@ -215,7 +229,11 @@ function Stat({
               type="button"
               onClick={onAction}
               disabled={actionDisabled}
-              className="border border-line-soft px-2.5 py-1 text-[0.6rem] font-display uppercase tracking-[0.14em] text-accent-2 transition-colors hover:border-line hover:text-text disabled:opacity-50"
+              className={`border px-2.5 py-1 text-[0.6rem] font-display uppercase tracking-[0.14em] transition-colors disabled:opacity-50 ${
+                isDanger
+                  ? "border-[#d45f67]/45 text-[#f2b1b6] hover:border-[#d45f67] hover:bg-[rgba(212,95,103,0.14)] hover:text-[#ffd7da]"
+                  : "border-line-soft text-accent-2 hover:border-line hover:text-text"
+              }`}
             >
               {actionLabel}
             </button>
@@ -783,7 +801,8 @@ export function VaultDetail({
           <Stat
             label="Status"
             value={vault.paused ? "Agent paused" : "Active"}
-            accent={vault.paused ? "text-accent-2" : "text-accent"}
+            accent={vault.paused ? "text-[#ffd7da]" : "text-accent"}
+            tone={vault.paused ? "danger" : "default"}
             actionLabel={
               statusBusy ? "Working" : vault.paused ? "Resume" : "Pause"
             }
