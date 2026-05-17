@@ -63,6 +63,8 @@ export type VaultTab =
   | "agent";
 const LIVE_REFRESH_INTERVAL_MS = 45_000;
 const LIVE_REFRESH_DEBOUNCE_MS = 750;
+const DIRECT_SEND_POLL_INTERVAL_MS = 2_000;
+const DIRECT_SEND_POLL_WINDOW_MS = 18_000;
 const SETUP_USDC_THRESHOLD_RAW = BigInt(1_000_000);
 const AGENT_COMMAND_COPIED_STORAGE_KEY = "tandem:agent-command-copied:v1";
 
@@ -484,6 +486,7 @@ export function VaultDetail({
   const [statusBusy, setStatusBusy] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [historyFocusProposal, setHistoryFocusProposal] = useState<string | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [tabPanelResetKey, setTabPanelResetKey] = useState(0);
   const [setupProgress, setSetupProgress] = useState<SetupChecklistProgress>({
     completedItems: [],
@@ -616,7 +619,7 @@ export function VaultDetail({
 
     try {
       const response = await fetch(
-        `/api/vault-history?vault=${vault.address.toBase58()}`,
+        `/api/vault-history?vault=${vault.address.toBase58()}&fresh=1`,
         { cache: "no-store" }
       );
       if (!response.ok) return;
@@ -634,9 +637,11 @@ export function VaultDetail({
         return;
       }
 
+      let newDirectSendCount = 0;
       agentSends.forEach((transfer) => {
         if (directSendSeenIdsRef.current.has(transfer.id)) return;
         directSendSeenIdsRef.current.add(transfer.id);
+        newDirectSendCount += 1;
         showToast({
           title: transfer.whitelisted
             ? "Whitelist payment sent"
@@ -650,6 +655,9 @@ export function VaultDetail({
           external: true,
         });
       });
+      if (newDirectSendCount > 0) {
+        setHistoryRefreshKey((current) => current + 1);
+      }
     } catch {
       // Live direct-send notifications are best-effort; history still shows them.
     } finally {
@@ -688,6 +696,29 @@ export function VaultDetail({
       void refreshPendingProposalCount();
       void checkDirectSendNotifications();
     };
+
+    let directSendPollTimer: number | null = null;
+    let directSendPollUntil = 0;
+    const pollDirectSends = () => {
+      if (cancelled) return;
+      directSendPollTimer = null;
+      void checkDirectSendNotifications();
+      if (Date.now() >= directSendPollUntil) return;
+      directSendPollTimer = window.setTimeout(
+        pollDirectSends,
+        DIRECT_SEND_POLL_INTERVAL_MS
+      );
+    };
+    const startDirectSendPoll = () => {
+      if (cancelled) return;
+      directSendPollUntil = Date.now() + DIRECT_SEND_POLL_WINDOW_MS;
+      if (directSendPollTimer) return;
+      directSendPollTimer = window.setTimeout(
+        pollDirectSends,
+        DIRECT_SEND_POLL_INTERVAL_MS
+      );
+    };
+
     const scheduleLiveStateRefresh = () => {
       if (cancelled) return;
       if (liveRefreshTimerRef.current) {
@@ -697,6 +728,7 @@ export function VaultDetail({
         refreshLiveState,
         LIVE_REFRESH_DEBOUNCE_MS
       );
+      startDirectSendPoll();
     };
 
     const vaultSubscription = connection.onAccountChange(
@@ -727,6 +759,9 @@ export function VaultDetail({
       window.clearInterval(interval);
       if (liveRefreshTimerRef.current) {
         window.clearTimeout(liveRefreshTimerRef.current);
+      }
+      if (directSendPollTimer) {
+        window.clearTimeout(directSendPollTimer);
       }
       void connection.removeAccountChangeListener(vaultSubscription);
       void connection.removeAccountChangeListener(vaultUsdcSubscription);
@@ -1258,6 +1293,7 @@ export function VaultDetail({
           <ProposalHistoryPanel
             vault={vault}
             focusedProposal={historyFocusProposal}
+            refreshKey={historyRefreshKey}
           />
         )}
         {tab === "whitelist" && <WhitelistPanel vault={vault} />}

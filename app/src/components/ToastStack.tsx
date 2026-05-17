@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, type CSSProperties } from "react";
+import {
+  useEffect,
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 
 export type ToastNotification = {
   id: string;
@@ -8,6 +13,7 @@ export type ToastNotification = {
   message?: string;
   actionLabel?: string;
   href?: string;
+  externalHref?: string;
   external?: boolean;
   onActivate?: () => void;
   durationMs?: number;
@@ -33,6 +39,8 @@ function ToastItem({
   }, [duration, onClose, toast.id]);
 
   const hasAction = Boolean(toast.href || toast.onActivate);
+  const newTabHref =
+    toast.externalHref ?? (toast.external && toast.href ? toast.href : null);
 
   function activate() {
     if (toast.onActivate) {
@@ -48,7 +56,13 @@ function ToastItem({
     }
   }
 
-  function activateFromKeyboard(event: React.KeyboardEvent<HTMLDivElement>) {
+  function openNewTab(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    if (!newTabHref) return;
+    window.open(newTabHref, "_blank", "noopener,noreferrer");
+  }
+
+  function activateFromKeyboard(event: KeyboardEvent<HTMLDivElement>) {
     if (!hasAction) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
@@ -61,7 +75,7 @@ function ToastItem({
       tabIndex={hasAction ? 0 : undefined}
       onClick={hasAction ? activate : undefined}
       onKeyDown={activateFromKeyboard}
-      className={`relative min-h-20 overflow-hidden border border-line bg-[rgba(2,10,12,0.96)] p-3 pr-10 shadow-[0_18px_48px_rgba(0,0,0,0.42)] ${
+      className={`relative min-h-20 overflow-hidden border border-line bg-[rgba(2,10,12,0.96)] p-3 ${newTabHref ? "pr-20" : "pr-10"} shadow-[0_18px_48px_rgba(0,0,0,0.42)] ${
         hasAction ? "cursor-pointer transition-colors hover:bg-[rgba(4,20,23,0.98)]" : ""
       }`}
     >
@@ -78,6 +92,29 @@ function ToastItem({
           <div className="hidden shrink-0 font-display text-[0.62rem] uppercase tracking-[0.14em] text-muted sm:block">
             {toast.actionLabel}
           </div>
+        ) : null}
+        {newTabHref ? (
+          <button
+            type="button"
+            aria-label="Open transaction in block explorer"
+            onClick={openNewTab}
+            className="absolute right-10 top-2 flex h-6 w-6 items-center justify-center border border-line-soft text-muted transition-colors hover:border-line hover:text-text"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M7 17L17 7" />
+              <path d="M8 7h9v9" />
+              <path d="M5 5v14h14" />
+            </svg>
+          </button>
         ) : null}
         <button
           type="button"

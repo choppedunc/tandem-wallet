@@ -97,10 +97,22 @@ const chainHistoryCache = new Map<
 >();
 const chainHistoryInFlight = new Map<string, Promise<ChainEventHistory>>();
 
-function historyStatus(proposal: ProposalHistoryItem): "accepted" | "rejected" | "pending" {
+function historyStatus(
+  proposal: ProposalHistoryItem,
+  transaction?: HistoryProposalTransaction
+): "accepted" | "rejected" | "pending" {
+  if (transaction?.action === "approved") return "accepted";
+  if (transaction?.action === "cancelled") return "rejected";
   if (proposal.executed) return "accepted";
   if (proposal.cancelled) return "rejected";
   return "pending";
+}
+
+function proposalIsFinal(
+  proposal: ProposalHistoryItem,
+  transaction?: HistoryProposalTransaction
+): boolean {
+  return historyStatus(proposal, transaction) !== "pending";
 }
 
 function explorerTxUrl(signature: string): string {
@@ -283,7 +295,7 @@ function ExpandedProposalDetails({
   transaction?: HistoryProposalTransaction;
   vault: VaultData;
 }) {
-  const status = historyStatus(proposal);
+  const status = historyStatus(proposal, transaction);
 
   return (
     <div className="mt-4 border-t border-line-soft pt-4">
@@ -372,9 +384,11 @@ function ExpandedDirectSendDetails({
 export function ProposalHistoryPanel({
   vault,
   focusedProposal,
+  refreshKey = 0,
 }: {
   vault: VaultData;
   focusedProposal?: string | null;
+  refreshKey?: number;
 }) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
@@ -390,22 +404,25 @@ export function ProposalHistoryPanel({
     [connection, wallet]
   );
 
-  const loadVaultEvents = useCallback(async (): Promise<ChainEventHistory> => {
+  const loadVaultEvents = useCallback(async (forceFresh = false): Promise<ChainEventHistory> => {
     if (!program) return { directSends: [], proposalTransactions: {}, incomplete: false };
 
     const cacheKey = vault.address.toBase58();
     const cached = chainHistoryCache.get(cacheKey);
-    if (cached && Date.now() - cached.loadedAt < TX_HISTORY_CACHE_MS) {
+    if (!forceFresh && cached && Date.now() - cached.loadedAt < TX_HISTORY_CACHE_MS) {
       return cached.history;
     }
 
-    const inFlight = chainHistoryInFlight.get(cacheKey);
+    const inFlightKey = forceFresh ? `${cacheKey}:fresh` : cacheKey;
+    const inFlight = chainHistoryInFlight.get(inFlightKey);
     if (inFlight) return inFlight;
 
     const request = (async () => {
-      const response = await fetch(`/api/vault-history?vault=${cacheKey}`, {
-        cache: "no-store",
-      });
+      const freshness = forceFresh ? "&fresh=1" : "";
+      const response = await fetch(
+        `/api/vault-history?vault=${cacheKey}${freshness}`,
+        { cache: "no-store" }
+      );
       if (!response.ok) {
         throw new Error("Direct transaction history could not be loaded.");
       }
@@ -439,11 +456,11 @@ export function ProposalHistoryPanel({
       return history;
     })();
 
-    chainHistoryInFlight.set(cacheKey, request);
+    chainHistoryInFlight.set(inFlightKey, request);
     try {
       return await request;
     } finally {
-      chainHistoryInFlight.delete(cacheKey);
+      chainHistoryInFlight.delete(inFlightKey);
     }
   }, [program, vault.address]);
 
@@ -471,6 +488,9 @@ export function ProposalHistoryPanel({
         memo: account.account.memo,
       }));
       const proposalRows: HistoryRow[] = mapped
+        .filter((proposal) =>
+          proposalIsFinal(proposal, localTransactions[proposal.pda.toBase58()])
+        )
         .map((proposal) => {
           const proposalKey = proposal.pda.toBase58();
           return {
@@ -491,7 +511,7 @@ export function ProposalHistoryPanel({
       };
 
       try {
-        chainHistory = await loadVaultEvents();
+        chainHistory = await loadVaultEvents(true);
       } catch (eventError) {
         setScanWarning(normalizeError(eventError));
         return;
@@ -502,15 +522,19 @@ export function ProposalHistoryPanel({
         chainHistory.proposalTransactions
       );
       const nextRows: HistoryRow[] = [
-        ...mapped.map((proposal) => {
-          const proposalKey = proposal.pda.toBase58();
-          return {
-            kind: "proposal" as const,
-            id: proposalKey,
-            proposal,
-            sortTime: proposalSortTime(proposal, mergedTransactions[proposalKey]),
-          };
-        }),
+        ...mapped
+          .filter((proposal) =>
+            proposalIsFinal(proposal, mergedTransactions[proposal.pda.toBase58()])
+          )
+          .map((proposal) => {
+            const proposalKey = proposal.pda.toBase58();
+            return {
+              kind: "proposal" as const,
+              id: proposalKey,
+              proposal,
+              sortTime: proposalSortTime(proposal, mergedTransactions[proposalKey]),
+            };
+          }),
         ...chainHistory.directSends.map((transfer) => ({
           kind: "direct-send" as const,
           id: `direct:${transfer.id}`,
@@ -535,7 +559,7 @@ export function ProposalHistoryPanel({
   useEffect(() => {
     setTransactions(loadProposalTransactions());
     refresh();
-  }, [refresh]);
+  }, [refresh, refreshKey]);
 
   useEffect(() => {
     if (!focusedProposal || !rows) return;
@@ -658,9 +682,9 @@ export function ProposalHistoryPanel({
             }
 
             const proposal = row.proposal;
-            const status = historyStatus(proposal);
             const proposalKey = proposal.pda.toBase58();
             const transaction = transactions[proposalKey];
+            const status = historyStatus(proposal, transaction);
 
             return (
               <div

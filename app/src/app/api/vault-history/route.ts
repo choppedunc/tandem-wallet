@@ -99,14 +99,18 @@ function asBn(value: unknown): BN {
   return new BN(String(value));
 }
 
-async function fetchVaultHistory(vault: PublicKey): Promise<HistoryResponse> {
+async function fetchVaultHistory(
+  vault: PublicKey,
+  options: { bypassCache?: boolean } = {}
+): Promise<HistoryResponse> {
   const cacheKey = vault.toBase58();
   const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.loadedAt < CACHE_MS) {
+  if (!options.bypassCache && cached && Date.now() - cached.loadedAt < CACHE_MS) {
     return cached.response;
   }
 
-  const existing = inFlight.get(cacheKey);
+  const inFlightKey = options.bypassCache ? `${cacheKey}:fresh` : cacheKey;
+  const existing = inFlight.get(inFlightKey);
   if (existing) return existing;
 
   const request = (async () => {
@@ -186,11 +190,11 @@ async function fetchVaultHistory(vault: PublicKey): Promise<HistoryResponse> {
     return response;
   })();
 
-  inFlight.set(cacheKey, request);
+  inFlight.set(inFlightKey, request);
   try {
     return await request;
   } finally {
-    inFlight.delete(cacheKey);
+    inFlight.delete(inFlightKey);
   }
 }
 
@@ -204,7 +208,9 @@ export async function GET(request: Request) {
 
   try {
     const vault = new PublicKey(vaultParam);
-    const history = await fetchVaultHistory(vault);
+    const history = await fetchVaultHistory(vault, {
+      bypassCache: searchParams.get("fresh") === "1",
+    });
     return NextResponse.json(history);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

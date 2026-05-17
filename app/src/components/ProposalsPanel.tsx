@@ -12,7 +12,7 @@ import {
 } from "@solana/spl-token";
 import BN from "bn.js";
 import { getProgram } from "@/lib/program";
-import { NETWORK } from "@/lib/network";
+import { NETWORK, explorerTxUrl } from "@/lib/network";
 import { saveProposalTransaction } from "@/lib/proposalTransactions";
 import { protocolConfigPda } from "@/lib/pdas";
 import { formatUsdc, shortAddress } from "@/lib/format";
@@ -413,6 +413,7 @@ export function ProposalsPanel({
           proposal.amount
         )}.`,
         actionLabel: "Open in History",
+        externalHref: explorerTxUrl(signature),
         onActivate: () => onOpenHistory(proposalKey),
       });
       setProposals((current) =>
@@ -466,6 +467,7 @@ export function ProposalsPanel({
         title: "Proposal rejected",
         message: `Proposal #${proposal.proposalId.toString()} was rejected.`,
         actionLabel: "Open in History",
+        externalHref: explorerTxUrl(signature),
         onActivate: () => onOpenHistory(proposalKey),
       });
       setProposals((current) =>
