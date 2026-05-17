@@ -37,7 +37,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     id: "agent-keypair",
     phase: "create",
     title: "Generate the agent keypair",
-    body: "This creates the wallet and signing key your agent will use for Tandem actions.",
+    body: "Recommended. This creates the wallet and signing key your agent will use for Tandem actions.",
     targetId: "agent-keypair",
   },
   {

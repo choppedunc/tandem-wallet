@@ -118,8 +118,12 @@ function DownloadKeypairButton({
 
 export function CreateVaultForm({
   onCreated,
+  onAgentGenerated,
+  onAgentModeChange,
 }: {
   onCreated: (vault: PublicKey, name: string) => void;
+  onAgentGenerated?: () => void;
+  onAgentModeChange?: (mode: "generate" | "paste") => void;
 }) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
@@ -131,6 +135,7 @@ export function CreateVaultForm({
     null
   );
   const [generatedPubkey, setGeneratedPubkey] = useState<string | null>(null);
+  const [existingAgentConfirmed, setExistingAgentConfirmed] = useState(false);
   const [limit, setLimit] = useState("50");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +158,7 @@ export function CreateVaultForm({
     setGeneratedSecret(bs58.encode(kp.secretKey));
     setGeneratedKeypairJson(JSON.stringify(Array.from(kp.secretKey), null, 2));
     setGeneratedKeypairSaved(false);
+    onAgentGenerated?.();
   }
 
   async function createVault() {
@@ -165,6 +171,14 @@ export function CreateVaultForm({
         agentMode === "generate" ? generatedPubkey : agentPubkeyInput.trim();
       if (!agentPubkeyStr) throw new Error("Provide an agent public key.");
       const agent = new PublicKey(agentPubkeyStr);
+      if (agent.equals(wallet.publicKey)) {
+        throw new Error("Use a separate agent wallet from your human wallet.");
+      }
+      if (agentMode === "paste" && !existingAgentConfirmed) {
+        throw new Error(
+          "Confirm that your agent controls this wallet before creating the vault."
+        );
+      }
 
       const limitNum = parseFloat(limit);
       if (isNaN(limitNum) || limitNum < 0)
@@ -211,6 +225,7 @@ export function CreateVaultForm({
       setGeneratedKeypairJson(null);
       setGeneratedPubkey(null);
       setGeneratedKeypairSaved(false);
+      setExistingAgentConfirmed(false);
       setAgentPubkeyInput("");
       setVaultName("");
     } catch (error) {
@@ -229,6 +244,12 @@ export function CreateVaultForm({
     }
     void createVault();
   }
+
+  const createVaultDisabled =
+    submitting ||
+    (agentMode === "generate" && !generatedPubkey) ||
+    (agentMode === "paste" &&
+      (!agentPubkeyInput.trim() || !existingAgentConfirmed));
 
   return (
     <div className="brackets p-8">
@@ -296,6 +317,8 @@ export function CreateVaultForm({
               onClick={() => {
                 setAgentMode("generate");
                 setAgentPubkeyInput("");
+                setExistingAgentConfirmed(false);
+                onAgentModeChange?.("generate");
               }}
               className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-display uppercase tracking-wider border ${
                 agentMode === "generate"
@@ -313,6 +336,8 @@ export function CreateVaultForm({
               onClick={() => {
                 setAgentMode("paste");
                 clearGeneratedAgent();
+                setExistingAgentConfirmed(false);
+                onAgentModeChange?.("paste");
               }}
               className={`px-3 py-2 text-sm font-display uppercase tracking-wider border ${
                 agentMode === "paste"
@@ -425,7 +450,10 @@ export function CreateVaultForm({
               <input
                 type="text"
                 value={agentPubkeyInput}
-                onChange={(e) => setAgentPubkeyInput(e.target.value)}
+                onChange={(e) => {
+                  setAgentPubkeyInput(e.target.value);
+                  setExistingAgentConfirmed(false);
+                }}
                 placeholder="Agent public key (base58)"
                 className="w-full px-3 py-2.5 border border-line-soft bg-[rgba(2,10,12,0.7)] text-text font-display text-sm focus:outline-none focus:border-line"
               />
@@ -443,6 +471,20 @@ export function CreateVaultForm({
                   access that keypair, use Generate Keypair instead.
                 </p>
               </div>
+              <label className="flex items-start gap-3 border border-line-soft bg-[rgba(58,23,25,0.28)] p-3 text-xs leading-relaxed text-muted">
+                <input
+                  type="checkbox"
+                  checked={existingAgentConfirmed}
+                  onChange={(event) =>
+                    setExistingAgentConfirmed(event.target.checked)
+                  }
+                  className="mt-1 h-4 w-4 shrink-0 accent-[#49d4d0]"
+                />
+                <span>
+                  I confirm the agent controls this wallet and can access the
+                  matching Solana keypair file during setup.
+                </span>
+              </label>
             </div>
           )}
         </div>
@@ -455,7 +497,7 @@ export function CreateVaultForm({
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={createVaultDisabled}
           data-onboarding="create-vault"
           className="brackets-accent w-full py-3 text-sm font-bold uppercase tracking-[0.14em] text-[#032b2a] disabled:opacity-50"
         >

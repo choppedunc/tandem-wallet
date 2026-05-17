@@ -334,6 +334,25 @@ export function Dashboard() {
     setOnboardingStep(previousStep.id, true);
   }, [onboardingStepIndex, setOnboardingStep]);
 
+  const handleAgentGenerated = useCallback(() => {
+    if (!onboardingVisible || onboardingStep.id !== "agent-keypair") return;
+    setOnboardingStep("download-keypair", true);
+  }, [onboardingStep.id, onboardingVisible, setOnboardingStep]);
+
+  const handleAgentModeChange = useCallback(
+    (mode: "generate" | "paste") => {
+      if (!onboardingVisible || mode !== "paste") return;
+      if (
+        onboardingStep.id !== "agent-keypair" &&
+        onboardingStep.id !== "download-keypair"
+      ) {
+        return;
+      }
+      setOnboardingStep("create-vault", true);
+    },
+    [onboardingStep.id, onboardingVisible, setOnboardingStep]
+  );
+
   useEffect(() => {
     if (!walletAddress || onboardingProgress) return;
     if (onboardingLoadedWallet !== walletAddress) return;
@@ -449,6 +468,8 @@ export function Dashboard() {
             setSelectedVaultAddress(vault.toBase58());
             refresh();
           }}
+          onAgentGenerated={handleAgentGenerated}
+          onAgentModeChange={handleAgentModeChange}
         />
         {onboardingUi}
       </>
@@ -523,6 +544,8 @@ export function Dashboard() {
               setShowCreateVault(false);
               refresh();
             }}
+            onAgentGenerated={handleAgentGenerated}
+            onAgentModeChange={handleAgentModeChange}
           />
           {onboardingUi}
         </>
