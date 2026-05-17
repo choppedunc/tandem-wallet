@@ -259,10 +259,7 @@ export function AgentConnectorPanel({
             <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
               Connection
             </p>
-            <h2 className="font-display text-2xl font-bold text-text">
-              Agent connection
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
+            <p className="max-w-2xl text-sm leading-relaxed text-muted">
               Use the setup command to connect your agent to this vault.
               Connector details are reference values for custom setups or
               debugging.
