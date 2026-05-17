@@ -85,13 +85,13 @@ export const SETUP_CHECKLIST_ITEMS: SetupChecklistItem[] = [
   {
     id: "agent-json-file",
     title: "Give the agent the JSON file",
-    body: "Upload the downloaded file to the agent, or store it somewhere the agent can access.",
+    body: "Upload the downloaded file to the agent, or store it somewhere the agent can access. Click Done after that is handled.",
     actionLabel: "Open agent tab",
   },
   {
     id: "agent-setup-command",
     title: "Send the setup command",
-    body: "Give this command to the agent. It connects the agent to this specific vault.",
+    body: "Copy this command, paste it into your agent, then come back and click Done.",
     actionLabel: "Copy command",
   },
 ];

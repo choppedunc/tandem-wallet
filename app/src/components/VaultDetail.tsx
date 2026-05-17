@@ -260,12 +260,15 @@ function Stat({
   );
 }
 
-const MANUAL_SETUP_ITEMS = new Set<SetupChecklistItemId>(["agent-json-file"]);
+const MANUAL_SETUP_ITEMS = new Set<SetupChecklistItemId>([
+  "agent-json-file",
+  "agent-setup-command",
+]);
 
 function SetupPanel({
   completedItems,
   manualItems,
-  autoItems,
+  commandCopied,
   onAction,
   onToggleItem,
   onMarkAllDone,
@@ -273,7 +276,7 @@ function SetupPanel({
 }: {
   completedItems: Set<SetupChecklistItemId>;
   manualItems: Set<SetupChecklistItemId>;
-  autoItems: Set<SetupChecklistItemId>;
+  commandCopied: boolean;
   onAction: (item: SetupChecklistItemId) => void;
   onToggleItem: (item: SetupChecklistItemId, completed: boolean) => void;
   onMarkAllDone: () => void;
@@ -310,7 +313,7 @@ function SetupPanel({
                 onClick={onMarkAllDone}
                 className="border border-line-soft px-3 py-2 text-[0.65rem] font-display uppercase tracking-[0.14em] text-muted transition-colors hover:border-line hover:text-text"
               >
-                Mark all done
+                All done
               </button>
             ) : null}
           </div>
@@ -320,10 +323,12 @@ function SetupPanel({
           {SETUP_CHECKLIST_ITEMS.map((item) => {
             const completed = completedItems.has(item.id);
             const manuallyCompleted = manualItems.has(item.id);
-            const automaticallyCompleted = autoItems.has(item.id);
-            const canMark =
-              MANUAL_SETUP_ITEMS.has(item.id) && !automaticallyCompleted;
+            const canMark = MANUAL_SETUP_ITEMS.has(item.id);
             const isNext = item.id === nextItem;
+            const actionLabel =
+              item.id === "agent-setup-command" && commandCopied
+                ? "Copy again"
+                : item.actionLabel;
 
             return (
               <div
@@ -363,13 +368,13 @@ function SetupPanel({
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
-                    {item.actionLabel && !completed ? (
+                    {actionLabel && !completed ? (
                       <button
                         type="button"
                         onClick={() => onAction(item.id)}
                         className="border border-line-soft px-3 py-2 text-[0.65rem] font-display uppercase tracking-[0.14em] text-accent-2 transition-colors hover:border-line hover:text-text"
                       >
-                        {item.actionLabel}
+                        {actionLabel}
                       </button>
                     ) : null}
                     {canMark ? (
@@ -382,7 +387,7 @@ function SetupPanel({
                             : "border-line text-text hover:bg-[rgba(10,186,181,0.08)]"
                         }`}
                       >
-                        {manuallyCompleted ? "Undo" : "Mark done"}
+                        {manuallyCompleted ? "Undo" : "Done"}
                       </button>
                     ) : null}
                   </div>
@@ -394,24 +399,51 @@ function SetupPanel({
       </section>
 
       {allComplete ? (
-        <section className="brackets-accent p-6 text-[#032b2a]">
-          <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em]">
-            Done
-          </p>
-          <h2 className="font-display text-2xl font-bold">
-            You&apos;re all set up
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#075654]">
-            Ask your agent to check vault state and start spending with Tandem.
-          </p>
-          <button
-            type="button"
-            onClick={onFinish}
-            className="mt-5 border border-[#075654]/35 px-4 py-2 text-xs font-display font-bold uppercase tracking-[0.14em] text-[#032b2a] transition-colors hover:border-[#032b2a]"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4">
+          <section
+            className="brackets-accent max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6 text-[#032b2a] shadow-[0_18px_70px_rgba(0,0,0,0.62)]"
+            role="dialog"
+            aria-label="Tandem setup complete"
           >
-            Finish setup
-          </button>
-        </section>
+            <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em]">
+              Setup complete
+            </p>
+            <h2 className="font-display text-2xl font-bold">
+              You&apos;re all set up
+            </h2>
+            <div className="mt-4 grid gap-3 text-sm leading-relaxed text-[#075654] sm:grid-cols-2">
+              <div className="border border-[#075654]/25 bg-[#49d4d0]/10 p-3">
+                Your agent can spend vault USDC within the allowance without
+                human approval.
+              </div>
+              <div className="border border-[#075654]/25 bg-[#49d4d0]/10 p-3">
+                Whitelisted recipients can receive above-allowance payments
+                directly.
+              </div>
+              <div className="border border-[#075654]/25 bg-[#49d4d0]/10 p-3">
+                Other above-allowance payments become proposals for you to
+                approve.
+              </div>
+              <div className="border border-[#075654]/25 bg-[#49d4d0]/10 p-3">
+                You can pause, change allowance, whitelist, withdraw, and
+                review history from the dashboard.
+              </div>
+            </div>
+            <p className="mt-4 text-sm leading-relaxed text-[#075654]">
+              Ask your agent to check vault state, then start spending with
+              Tandem.
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={onFinish}
+                className="border border-[#075654]/35 px-4 py-2 text-xs font-display font-bold uppercase tracking-[0.14em] text-[#032b2a] transition-colors hover:border-[#032b2a]"
+              >
+                Go to overview
+              </button>
+            </div>
+          </section>
+        </div>
       ) : null}
     </div>
   );
@@ -955,18 +987,11 @@ export function VaultDetail({
     if (agentSolBalance !== null && agentSolBalance > 0) {
       completed.push("deposit-agent-sol");
     }
-    if (agentCommandCopied) {
-      completed.push("agent-setup-command");
-    }
     return completed;
-  }, [agentCommandCopied, agentSolBalance, usdcBalance]);
+  }, [agentSolBalance, usdcBalance]);
   const manualCompletedSetupItems = useMemo(
     () => new Set<SetupChecklistItemId>(setupProgress.completedItems),
     [setupProgress.completedItems]
-  );
-  const autoCompletedSetupItemSet = useMemo(
-    () => new Set<SetupChecklistItemId>(autoCompletedSetupItems),
-    [autoCompletedSetupItems]
   );
   const completedSetupItems = useMemo(
     () =>
@@ -1048,6 +1073,9 @@ export function VaultDetail({
     const current = new Set(setupProgress.completedItems);
     if (completed) current.add(item);
     else current.delete(item);
+    if (item === "agent-setup-command" && completed) {
+      markSetupCommandCopied();
+    }
     saveSetupProgress({
       completedItems: [...current],
       dismissed: false,
@@ -1076,17 +1104,10 @@ export function VaultDetail({
       try {
         await navigator.clipboard.writeText(setupCommand);
         markSetupCommandCopied();
-        saveSetupProgress({
-          completedItems: [
-            ...new Set<SetupChecklistItemId>([
-              ...setupProgress.completedItems,
-              "agent-setup-command",
-            ]),
-          ],
-          dismissed: false,
-        });
       } catch {
-        setActionError("Could not copy the setup command. Open the Agent tab to copy it manually.");
+        setActionError(
+          "Could not copy the setup command. Open the Agent tab to copy it manually."
+        );
       }
     }
   }
@@ -1101,7 +1122,7 @@ export function VaultDetail({
 
   function finishSetup() {
     saveSetupProgress({
-      completedItems: [...setupProgress.completedItems],
+      completedItems: SETUP_CHECKLIST_ITEMS.map((item) => item.id),
       dismissed: true,
     });
     switchTab("overview");
@@ -1197,7 +1218,7 @@ export function VaultDetail({
           <SetupPanel
             completedItems={completedSetupItems}
             manualItems={manualCompletedSetupItems}
-            autoItems={autoCompletedSetupItemSet}
+            commandCopied={agentCommandCopied}
             onAction={handleSetupAction}
             onToggleItem={toggleSetupItem}
             onMarkAllDone={markAllSetupDone}
