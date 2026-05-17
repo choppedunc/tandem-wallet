@@ -235,32 +235,47 @@ export function AgentConnectorPanel({
     </>
   );
 
+  const connectorDetailsContent = (
+    <details className="border border-line-soft p-4">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
+        <span>Connector Details</span>
+        <InfoTooltip label="Reference values for this vault connection. Most users do not need these unless they are debugging setup or configuring a custom agent environment." />
+      </summary>
+      <div className="mt-4">
+        <DetailLine label="Vault PDA" value={vaultAddress} />
+        <DetailLine label="Agent" value={agentAddress} />
+        <DetailLine label="Program" value={programId} />
+        <DetailLine label="RPC" value={RPC_URL} />
+        <DetailLine label="App URL" value={appUrl} />
+      </div>
+    </details>
+  );
+
   return (
     <div className="space-y-5">
-      {!commandCopied && (
-        <section className="brackets p-6">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
-                Connection
-              </p>
-              <h2 className="font-display text-2xl font-bold text-text">
-                One command for agent setup
-              </h2>
-            </div>
-            <div className="border border-line-soft px-3 py-2 text-[0.65rem] uppercase tracking-[0.18em] text-muted font-display">
-              {NETWORK}
-            </div>
+      <section className="brackets p-6" data-onboarding="agent-json-file">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
+              Connection
+            </p>
+            <h2 className="font-display text-2xl font-bold text-text">
+              Agent connection
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
+              Use the setup command to connect your agent to this vault.
+              Connector details are reference values for custom setups or
+              debugging.
+            </p>
           </div>
-          {setupCommandContent}
-        </section>
-      )}
+          <div className="border border-line-soft px-3 py-2 text-[0.65rem] uppercase tracking-[0.18em] text-muted font-display">
+            {NETWORK}
+          </div>
+        </div>
 
-      {commandCopied && (
-        <section className="brackets p-6" data-onboarding="agent-json-file">
-          <p className="mb-4 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
-            Connection
-          </p>
+        {!commandCopied ? (
+          setupCommandContent
+        ) : (
           <details
             className="border border-line-soft p-4"
             data-onboarding="agent-setup-command"
@@ -273,23 +288,9 @@ export function AgentConnectorPanel({
               {setupCommandContent}
             </div>
           </details>
-        </section>
-      )}
+        )}
 
-      <section className="brackets p-6">
-        <details className="border border-line-soft p-4">
-          <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
-            <span>Connector Details</span>
-            <InfoTooltip label="Reference values for this vault connection. Most users do not need these unless they are debugging setup or configuring a custom agent environment." />
-          </summary>
-          <div className="mt-4">
-            <DetailLine label="Vault PDA" value={vaultAddress} />
-            <DetailLine label="Agent" value={agentAddress} />
-            <DetailLine label="Program" value={programId} />
-            <DetailLine label="RPC" value={RPC_URL} />
-            <DetailLine label="App URL" value={appUrl} />
-          </div>
-        </details>
+        <div className="mt-5">{connectorDetailsContent}</div>
       </section>
 
       <section className="brackets p-6">
