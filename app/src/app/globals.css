@@ -241,3 +241,133 @@ h3,
   color: var(--color-text) !important;
   box-shadow: none !important;
 }
+
+.tandem-wallet-modal-wrapper {
+  width: min(92vw, 34rem) !important;
+  max-height: min(82vh, 46rem);
+  overflow-y: auto;
+}
+
+.tandem-wallet-modal-head {
+  margin-bottom: 1rem;
+}
+
+.tandem-wallet-modal-head .wallet-adapter-modal-title {
+  margin: 0.25rem 0 0.7rem !important;
+  text-align: left !important;
+}
+
+.tandem-wallet-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.9rem;
+}
+
+.tandem-wallet-list {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tandem-wallet-option {
+  align-items: center;
+  background: rgba(3, 14, 17, 0.9);
+  border: 1px solid var(--color-line-soft);
+  color: var(--color-text);
+  cursor: pointer;
+  display: grid;
+  font-family: var(--font-sans);
+  gap: 0.75rem;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  min-height: 3.4rem;
+  padding: 0.65rem 0.8rem;
+  text-align: left;
+  width: 100%;
+}
+
+.tandem-wallet-option:hover,
+.tandem-wallet-option:focus-visible {
+  border-color: var(--color-line);
+  outline: none;
+}
+
+.tandem-wallet-icon {
+  align-items: center;
+  display: inline-flex;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+.tandem-wallet-icon img {
+  border-radius: 0.45rem;
+  display: block;
+  height: 2rem;
+  width: 2rem;
+}
+
+.tandem-wallet-name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tandem-wallet-state {
+  border: 1px solid var(--color-line-soft);
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.28rem 0.45rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tandem-wallet-state.is-detected {
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #9af2bd;
+}
+
+.tandem-wallet-state.is-loadable {
+  border-color: rgba(98, 225, 219, 0.45);
+  color: var(--color-accent);
+}
+
+.tandem-wallet-state.is-install {
+  border-color: rgba(245, 180, 79, 0.45);
+  color: #ffd28a;
+}
+
+.tandem-wallet-state.is-muted {
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(208, 255, 253, 0.45);
+}
+
+@media (max-width: 560px) {
+  .tandem-wallet-modal-wrapper {
+    width: min(94vw, 34rem) !important;
+    max-height: 84vh;
+    padding: 1.5rem !important;
+  }
+
+  .tandem-wallet-modal-actions {
+    justify-content: stretch;
+  }
+
+  .tandem-wallet-modal-actions .brackets-accent {
+    width: 100%;
+  }
+
+  .tandem-wallet-option {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+
+  .tandem-wallet-state {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
