@@ -344,7 +344,7 @@ export function AgentConnectorPanel({
         </div>
       </section>
 
-      <section className="brackets p-6" data-onboarding="setup-test">
+      <section className="brackets p-6">
         <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
           Agent safety
         </p>

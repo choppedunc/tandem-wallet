@@ -24,6 +24,14 @@ import {
   usdcToRaw,
 } from "@/lib/format";
 import { explorerTxUrl } from "@/lib/network";
+import {
+  SETUP_CHECKLIST_ITEMS,
+  firstIncompleteSetupItem,
+  loadSetupChecklistProgress,
+  saveSetupChecklistProgress,
+  type SetupChecklistItemId,
+  type SetupChecklistProgress,
+} from "@/lib/onboarding";
 import { getProgram } from "@/lib/program";
 import { FundsPanel, VaultOverview } from "./VaultOverview";
 import { ProposalHistoryPanel } from "./ProposalHistoryPanel";
@@ -45,6 +53,7 @@ export type VaultData = {
 };
 
 export type VaultTab =
+  | "setup"
   | "overview"
   | "funds"
   | "proposals"
@@ -55,16 +64,6 @@ const LIVE_REFRESH_INTERVAL_MS = 45_000;
 const LIVE_REFRESH_DEBOUNCE_MS = 750;
 const SETUP_USDC_THRESHOLD_RAW = BigInt(1_000_000);
 const AGENT_COMMAND_COPIED_STORAGE_KEY = "tandem:agent-command-copied:v1";
-const ONBOARDING_STEP_TABS: Partial<Record<string, VaultTab>> = {
-  "deposit-usdc": "overview",
-  "deposit-agent-sol": "overview",
-  "agent-json-file": "agent",
-  "agent-setup-command": "agent",
-  "allowance-controls": "overview",
-  "pause-controls": "overview",
-  "withdraw-controls": "funds",
-  "setup-test": "agent",
-};
 
 type ActionModal = "usdc" | "sol" | "limit" | null;
 
@@ -260,24 +259,173 @@ function Stat({
   );
 }
 
+const MANUAL_SETUP_ITEMS = new Set<SetupChecklistItemId>([
+  "agent-json-file",
+  "agent-setup-command",
+  "allowance-controls",
+  "pause-controls",
+  "withdraw-controls",
+]);
+
+function SetupPanel({
+  completedItems,
+  manualItems,
+  autoItems,
+  onAction,
+  onToggleItem,
+  onFinish,
+}: {
+  completedItems: Set<SetupChecklistItemId>;
+  manualItems: Set<SetupChecklistItemId>;
+  autoItems: Set<SetupChecklistItemId>;
+  onAction: (item: SetupChecklistItemId) => void;
+  onToggleItem: (item: SetupChecklistItemId, completed: boolean) => void;
+  onFinish: () => void;
+}) {
+  const allComplete = SETUP_CHECKLIST_ITEMS.every((item) =>
+    completedItems.has(item.id)
+  );
+  const nextItem = firstIncompleteSetupItem([...completedItems]);
+
+  return (
+    <div className="space-y-4">
+      <section className="brackets p-6">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
+              Setup
+            </p>
+            <h2 className="font-display text-2xl font-bold text-text">
+              Finish Tandem setup
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
+              Complete these once after vault creation. The setup tab hides
+              when the checklist is finished.
+            </p>
+          </div>
+          <div className="border border-line-soft px-3 py-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-muted">
+            {completedItems.size} / {SETUP_CHECKLIST_ITEMS.length}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {SETUP_CHECKLIST_ITEMS.map((item) => {
+            const completed = completedItems.has(item.id);
+            const manuallyCompleted = manualItems.has(item.id);
+            const automaticallyCompleted = autoItems.has(item.id);
+            const canMark =
+              MANUAL_SETUP_ITEMS.has(item.id) && !automaticallyCompleted;
+            const isNext = item.id === nextItem;
+
+            return (
+              <div
+                key={item.id}
+                className={`border p-4 ${
+                  completed
+                    ? "border-line-soft bg-[rgba(10,186,181,0.04)]"
+                    : isNext
+                      ? "border-line bg-[rgba(10,186,181,0.08)]"
+                      : "border-line-soft bg-[rgba(2,10,12,0.45)]"
+                }`}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex h-5 w-5 items-center justify-center border font-display text-[0.6rem] ${
+                          completed
+                            ? "border-accent text-accent"
+                            : "border-line-soft text-muted"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {completed ? "OK" : ""}
+                      </span>
+                      <p className="font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
+                        {item.title}
+                      </p>
+                      {isNext && !completed ? (
+                        <span className="border border-line-soft px-2 py-0.5 font-display text-[0.55rem] uppercase tracking-[0.14em] text-accent-2">
+                          Next
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-sm leading-relaxed text-muted">
+                      {item.body}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    {item.actionLabel && !completed ? (
+                      <button
+                        type="button"
+                        onClick={() => onAction(item.id)}
+                        className="border border-line-soft px-3 py-2 text-[0.65rem] font-display uppercase tracking-[0.14em] text-accent-2 transition-colors hover:border-line hover:text-text"
+                      >
+                        {item.actionLabel}
+                      </button>
+                    ) : null}
+                    {canMark ? (
+                      <button
+                        type="button"
+                        onClick={() => onToggleItem(item.id, !completed)}
+                        className={`border px-3 py-2 text-[0.65rem] font-display uppercase tracking-[0.14em] transition-colors ${
+                          completed
+                            ? "border-line-soft text-muted hover:border-line hover:text-text"
+                            : "border-line text-text hover:bg-[rgba(10,186,181,0.08)]"
+                        }`}
+                      >
+                        {manuallyCompleted ? "Undo" : "Mark done"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {allComplete ? (
+        <section className="brackets-accent p-6 text-[#032b2a]">
+          <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em]">
+            Done
+          </p>
+          <h2 className="font-display text-2xl font-bold">
+            You&apos;re all set up
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#075654]">
+            Ask your agent to check vault state and start spending with Tandem.
+          </p>
+          <button
+            type="button"
+            onClick={onFinish}
+            className="mt-5 border border-[#075654]/35 px-4 py-2 text-xs font-display font-bold uppercase tracking-[0.14em] text-[#032b2a] transition-colors hover:border-[#032b2a]"
+          >
+            Finish setup
+          </button>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
 export function VaultDetail({
   vault,
   vaultName,
   onChange,
   initialTab,
   initialProposal,
-  onboardingStepId,
 }: {
   vault: VaultData;
   vaultName?: string;
   onChange: () => void;
   initialTab?: VaultTab;
   initialProposal?: string | null;
-  onboardingStepId?: string | null;
 }) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
-  const [tab, setTab] = useState<VaultTab>("overview");
+  const walletAddress = wallet?.publicKey.toBase58() ?? null;
+  const [tab, setTab] = useState<VaultTab>("setup");
   const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null);
   const [agentSolBalance, setAgentSolBalance] = useState<number | null>(null);
   const [pendingProposalCount, setPendingProposalCount] = useState(0);
@@ -296,6 +444,11 @@ export function VaultDetail({
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [historyFocusProposal, setHistoryFocusProposal] = useState<string | null>(null);
   const [tabPanelResetKey, setTabPanelResetKey] = useState(0);
+  const [setupProgress, setSetupProgress] = useState<SetupChecklistProgress>({
+    completedItems: [],
+    dismissed: false,
+    updatedAt: new Date().toISOString(),
+  });
   const appliedInitialViewRef = useRef<string | null>(null);
   const balancesRefreshInFlightRef = useRef(false);
   const pendingRefreshInFlightRef = useRef(false);
@@ -324,6 +477,15 @@ export function VaultDetail({
     setAgentCommandCopied(loadAgentCommandCopied(vault.address));
   }, [vault.address]);
 
+  useEffect(() => {
+    setSetupProgress(
+      loadSetupChecklistProgress(
+        walletAddress,
+        vault.address.toBase58()
+      )
+    );
+  }, [vault.address, walletAddress]);
+
   const showToast = useCallback((toast: Omit<ToastNotification, "id">) => {
     setToasts((current) =>
       [...current, { ...toast, id: createToastId() }].slice(-4)
@@ -345,13 +507,6 @@ export function VaultDetail({
     },
     []
   );
-
-  useEffect(() => {
-    if (!onboardingStepId) return;
-    const targetTab = ONBOARDING_STEP_TABS[onboardingStepId];
-    if (!targetTab || targetTab === tab) return;
-    switchTab(targetTab);
-  }, [onboardingStepId, switchTab, tab]);
 
   const refreshBalances = useCallback(async () => {
     if (balancesRefreshInFlightRef.current) return;
@@ -771,6 +926,39 @@ export function VaultDetail({
     agentSolBalance !== null && agentSolBalance <= 0;
   const needsAgentSetupAttention = needsAgentSolTopUp || !agentCommandCopied;
   const needsFundsAttention = needsUsdcTopUp || needsAgentSolTopUp;
+  const autoCompletedSetupItems = useMemo<SetupChecklistItemId[]>(() => {
+    const completed: SetupChecklistItemId[] = [];
+    if (usdcBalance !== null && usdcBalance >= SETUP_USDC_THRESHOLD_RAW) {
+      completed.push("deposit-usdc");
+    }
+    if (agentSolBalance !== null && agentSolBalance > 0) {
+      completed.push("deposit-agent-sol");
+    }
+    if (agentCommandCopied) {
+      completed.push("agent-setup-command");
+    }
+    return completed;
+  }, [agentCommandCopied, agentSolBalance, usdcBalance]);
+  const manualCompletedSetupItems = useMemo(
+    () => new Set<SetupChecklistItemId>(setupProgress.completedItems),
+    [setupProgress.completedItems]
+  );
+  const autoCompletedSetupItemSet = useMemo(
+    () => new Set<SetupChecklistItemId>(autoCompletedSetupItems),
+    [autoCompletedSetupItems]
+  );
+  const completedSetupItems = useMemo(
+    () =>
+      new Set<SetupChecklistItemId>([
+        ...manualCompletedSetupItems,
+        ...autoCompletedSetupItems,
+      ]),
+    [autoCompletedSetupItems, manualCompletedSetupItems]
+  );
+  const setupComplete = SETUP_CHECKLIST_ITEMS.every((item) =>
+    completedSetupItems.has(item.id)
+  );
+  const showSetupTab = !setupProgress.dismissed || !setupComplete;
 
   const tabs: {
     id: VaultTab;
@@ -780,6 +968,16 @@ export function VaultDetail({
     attentionLabel?: string;
   }[] = useMemo(
     () => [
+      ...(showSetupTab
+        ? [
+            {
+              id: "setup" as const,
+              label: "Setup",
+              attention: !setupComplete,
+              attentionLabel: "Setup checklist incomplete",
+            },
+          ]
+        : []),
       { id: "overview", label: "Overview" },
       {
         id: "funds",
@@ -797,8 +995,77 @@ export function VaultDetail({
         attentionLabel: "Agent setup needs attention",
       },
     ],
-    [needsAgentSetupAttention, needsFundsAttention, pendingProposalCount]
+    [
+      needsAgentSetupAttention,
+      needsFundsAttention,
+      pendingProposalCount,
+      setupComplete,
+      showSetupTab,
+    ]
   );
+
+  useEffect(() => {
+    if (tab === "setup" && !showSetupTab) {
+      switchTab("overview");
+    }
+  }, [showSetupTab, switchTab, tab]);
+
+  function saveSetupProgress(
+    progress: Omit<SetupChecklistProgress, "updatedAt">
+  ) {
+    if (!walletAddress) return;
+    setSetupProgress(
+      saveSetupChecklistProgress(
+        walletAddress,
+        vault.address.toBase58(),
+        progress
+      )
+    );
+  }
+
+  function toggleSetupItem(item: SetupChecklistItemId, completed: boolean) {
+    const current = new Set(setupProgress.completedItems);
+    if (completed) current.add(item);
+    else current.delete(item);
+    saveSetupProgress({
+      completedItems: [...current],
+      dismissed: false,
+    });
+  }
+
+  function handleSetupAction(item: SetupChecklistItemId) {
+    if (item === "deposit-usdc") {
+      openActionModal("usdc");
+      return;
+    }
+    if (item === "deposit-agent-sol") {
+      openActionModal("sol");
+      return;
+    }
+    if (item === "allowance-controls") {
+      openActionModal("limit");
+      return;
+    }
+    if (item === "withdraw-controls") {
+      switchTab("funds");
+      return;
+    }
+    if (item === "pause-controls") {
+      switchTab("overview");
+      return;
+    }
+    if (item === "agent-json-file" || item === "agent-setup-command") {
+      switchTab("agent");
+    }
+  }
+
+  function finishSetup() {
+    saveSetupProgress({
+      completedItems: [...setupProgress.completedItems],
+      dismissed: true,
+    });
+    switchTab("overview");
+  }
 
   return (
     <div>
@@ -886,6 +1153,16 @@ export function VaultDetail({
       </div>
 
       <div key={`${vault.address.toBase58()}:${tab}:${tabPanelResetKey}`}>
+        {tab === "setup" && showSetupTab && (
+          <SetupPanel
+            completedItems={completedSetupItems}
+            manualItems={manualCompletedSetupItems}
+            autoItems={autoCompletedSetupItemSet}
+            onAction={handleSetupAction}
+            onToggleItem={toggleSetupItem}
+            onFinish={finishSetup}
+          />
+        )}
         {tab === "overview" && (
           <VaultOverview
             vault={vault}

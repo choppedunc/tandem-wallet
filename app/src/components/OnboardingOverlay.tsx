@@ -132,7 +132,6 @@ export function OnboardingOverlay({
   onBack,
   onSkip,
   onFinish,
-  onRestart,
 }: {
   active: boolean;
   step: OnboardingStep;
@@ -144,7 +143,6 @@ export function OnboardingOverlay({
   onBack: () => void;
   onSkip: () => void;
   onFinish: () => void;
-  onRestart: () => void;
 }) {
   const [box, setBox] = useState<TargetBox | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ width: 0, height: 0 });
@@ -231,17 +229,10 @@ export function OnboardingOverlay({
         role="dialog"
         aria-label="Tandem setup guide"
       >
-        <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="mb-3">
           <p className="font-display text-[0.62rem] uppercase tracking-[0.18em] text-accent-2">
             Step {stepIndex + 1} / {totalSteps}
           </p>
-          <button
-            type="button"
-            onClick={onRestart}
-            className="border border-line-soft px-2 py-1 text-[0.58rem] font-display uppercase tracking-[0.14em] text-muted transition-colors hover:border-line hover:text-text"
-          >
-            Restart
-          </button>
         </div>
         <h2 className="font-display text-lg font-bold text-text">{step.title}</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted">{step.body}</p>
@@ -310,7 +301,7 @@ export function OnboardingControl({
     : completed
     ? "Complete"
     : skipped
-      ? "Skipped"
+      ? `Paused at step ${stepIndex + 1}`
       : `Step ${stepIndex + 1} / ${totalSteps}`;
 
   return (
@@ -323,22 +314,24 @@ export function OnboardingControl({
           <p className="mt-1 font-display text-xs text-text">{status}</p>
         </div>
         <div className="flex gap-2">
-          {!active && !completed && !skipped && (
+          {!active && !completed && (
             <button
               type="button"
               onClick={onResume}
               className="border border-line-soft px-2.5 py-1.5 text-[0.62rem] font-display uppercase tracking-[0.14em] text-accent-2 transition-colors hover:border-line hover:text-text"
             >
-              {hasProgress ? "Resume" : "Start"}
+              {hasProgress || skipped ? "Resume" : "Start"}
             </button>
           )}
-          <button
-            type="button"
-            onClick={onRestart}
-            className="border border-line-soft px-2.5 py-1.5 text-[0.62rem] font-display uppercase tracking-[0.14em] text-muted transition-colors hover:border-line hover:text-text"
-          >
-            Restart
-          </button>
+          {completed ? (
+            <button
+              type="button"
+              onClick={onRestart}
+              className="border border-line-soft px-2.5 py-1.5 text-[0.62rem] font-display uppercase tracking-[0.14em] text-muted transition-colors hover:border-line hover:text-text"
+            >
+              Restart
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

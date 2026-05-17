@@ -40,6 +40,7 @@ const WalletMultiButton = dynamic(
 );
 
 const VAULT_TABS = new Set<VaultTab>([
+  "setup",
   "overview",
   "funds",
   "proposals",
@@ -288,14 +289,17 @@ export function Dashboard() {
     if (!walletAddress) return;
     if (
       !onboardingProgress ||
-      onboardingProgress.completed ||
-      onboardingProgress.skipped
+      onboardingProgress.completed
     ) {
-      restartOnboarding();
+      setOnboardingStep(FIRST_ONBOARDING_STEP_ID, true);
+      return;
+    }
+    if (onboardingProgress.skipped) {
+      setOnboardingStep(onboardingProgress.stepId, true);
       return;
     }
     setOnboardingActive(true);
-  }, [onboardingProgress, restartOnboarding, walletAddress]);
+  }, [onboardingProgress, setOnboardingStep, walletAddress]);
 
   const skipOnboarding = useCallback(() => {
     if (!walletAddress) return;
@@ -366,26 +370,13 @@ export function Dashboard() {
     walletAddress,
   ]);
 
-  useEffect(() => {
-    if (!onboardingVisible) return;
-    if (onboardingStep.id !== "create-vault") return;
-    if (!hasVaults || showCreateVault) return;
-    setOnboardingStep("deposit-usdc", true);
-  }, [
-    hasVaults,
-    onboardingStep.id,
-    onboardingVisible,
-    setOnboardingStep,
-    showCreateVault,
-  ]);
-
   const onboardingNextDisabled =
     onboardingStep.id === "create-vault" && !hasVaults;
   const onboardingNextLabel = onboardingNextDisabled
     ? "Create vault first"
     : "Next";
 
-  const onboardingUi = walletAddress ? (
+  const onboardingUi = walletAddress && createVaultVisible ? (
     <>
       <OnboardingOverlay
         active={onboardingVisible}
@@ -398,7 +389,6 @@ export function Dashboard() {
         onBack={previousOnboardingStep}
         onSkip={skipOnboarding}
         onFinish={finishOnboarding}
-        onRestart={restartOnboarding}
       />
       <OnboardingControl
         visible={Boolean(walletAddress)}
@@ -466,6 +456,7 @@ export function Dashboard() {
             setVaultNames(saveVaultName(vault, name));
             saveVaultCreatedAt(vault);
             setSelectedVaultAddress(vault.toBase58());
+            finishOnboarding();
             refresh();
           }}
           onAgentGenerated={handleAgentGenerated}
@@ -542,6 +533,7 @@ export function Dashboard() {
               saveVaultCreatedAt(vault);
               setSelectedVaultAddress(vault.toBase58());
               setShowCreateVault(false);
+              finishOnboarding();
               refresh();
             }}
             onAgentGenerated={handleAgentGenerated}
@@ -559,14 +551,8 @@ export function Dashboard() {
           onChange={refresh}
           initialTab={deepLink.tab ?? undefined}
           initialProposal={deepLink.proposal}
-          onboardingStepId={
-            onboardingVisible && onboardingStep.phase === "vault"
-              ? onboardingStep.id
-              : null
-          }
         />
       )}
-      {!showCreateVault && onboardingUi}
     </div>
   );
 }

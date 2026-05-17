@@ -1,10 +1,8 @@
 const STORAGE_PREFIX = "tandem:onboarding:v1";
-
-export type OnboardingPhase = "create" | "vault";
+const SETUP_STORAGE_PREFIX = "tandem:setup-checklist:v1";
 
 export type OnboardingStep = {
   id: string;
-  phase: OnboardingPhase;
   title: string;
   body: string;
   targetId?: string;
@@ -18,31 +16,49 @@ export type OnboardingProgress = {
   updatedAt: string;
 };
 
+export type SetupChecklistItemId =
+  | "deposit-usdc"
+  | "deposit-agent-sol"
+  | "agent-json-file"
+  | "agent-setup-command"
+  | "allowance-controls"
+  | "pause-controls"
+  | "withdraw-controls";
+
+export type SetupChecklistItem = {
+  id: SetupChecklistItemId;
+  title: string;
+  body: string;
+  actionLabel?: string;
+};
+
+export type SetupChecklistProgress = {
+  completedItems: SetupChecklistItemId[];
+  dismissed: boolean;
+  updatedAt: string;
+};
+
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: "vault-name",
-    phase: "create",
     title: "Name the vault",
     body: "Use a human-friendly label so you can recognize this vault later.",
     targetId: "vault-name",
   },
   {
     id: "spending-limit",
-    phase: "create",
     title: "Set the spending limit",
     body: "This is the max USDC per transaction your agent can send without approval. You can edit it later.",
     targetId: "spending-limit",
   },
   {
     id: "agent-keypair",
-    phase: "create",
     title: "Generate the agent keypair",
     body: "Recommended. This creates the wallet and signing key your agent will use for Tandem actions.",
     targetId: "agent-keypair",
   },
   {
     id: "download-keypair",
-    phase: "create",
     title: "Download the keypair JSON",
     body: "Tandem does not store this file. Save it and give it to your agent.",
     targetId: "agent-keypair-download",
@@ -50,67 +66,54 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     id: "create-vault",
-    phase: "create",
     title: "Create the vault",
     body: "This creates the on-chain vault and links your wallet, agent wallet, and spending limit.",
     targetId: "create-vault",
   },
+];
+
+export const SETUP_CHECKLIST_ITEMS: SetupChecklistItem[] = [
   {
     id: "deposit-usdc",
-    phase: "vault",
     title: "Deposit USDC",
     body: "This is the vault balance your agent can spend from.",
-    targetId: "deposit-usdc",
+    actionLabel: "Top up",
   },
   {
     id: "deposit-agent-sol",
-    phase: "vault",
     title: "Deposit agent SOL",
     body: "This pays gas for agent sends and proposals. It goes to the agent wallet, not the USDC vault.",
-    targetId: "deposit-agent-sol",
+    actionLabel: "Top up",
   },
   {
     id: "agent-json-file",
-    phase: "vault",
     title: "Give the agent the JSON file",
     body: "Upload the downloaded file to the agent, or store it somewhere the agent can access.",
-    targetId: "agent-json-file",
+    actionLabel: "Open agent tab",
   },
   {
     id: "agent-setup-command",
-    phase: "vault",
     title: "Send the setup command",
     body: "Give this command to the agent. It connects the agent to this specific vault.",
-    targetId: "agent-setup-command",
+    actionLabel: "Open agent tab",
   },
   {
     id: "allowance-controls",
-    phase: "vault",
     title: "Allowance controls",
     body: "Edit the per-transaction spending limit any time.",
-    targetId: "allowance-controls",
+    actionLabel: "Review limit",
   },
   {
     id: "pause-controls",
-    phase: "vault",
     title: "Pause controls",
     body: "Pause blocks agent activity. Your human wallet still controls recovery.",
-    targetId: "pause-controls",
+    actionLabel: "Review pause",
   },
   {
     id: "withdraw-controls",
-    phase: "vault",
     title: "Withdraw controls",
     body: "The human owner can withdraw USDC from the vault.",
-    targetId: "withdraw-controls",
-  },
-  {
-    id: "setup-test",
-    phase: "vault",
-    title: "Optional setup test",
-    body: "Ask the agent to check vault state, then try a tiny send or an above-limit proposal.",
-    targetId: "setup-test",
-    fallbackTargetId: "agent-setup-command",
+    actionLabel: "Review withdraw",
   },
 ];
 
@@ -120,6 +123,18 @@ export const FINAL_ONBOARDING_STEP_ID =
 
 function storageKey(walletAddress: string): string {
   return `${STORAGE_PREFIX}:${walletAddress}`;
+}
+
+function setupStorageKey(walletAddress: string, vaultAddress: string): string {
+  return `${SETUP_STORAGE_PREFIX}:${walletAddress}:${vaultAddress}`;
+}
+
+function emptySetupProgress(): SetupChecklistProgress {
+  return {
+    completedItems: [],
+    dismissed: false,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function normalizeProgress(value: unknown): OnboardingProgress | null {
@@ -169,6 +184,80 @@ export function saveOnboardingProgress(
   }
 
   return next;
+}
+
+function normalizeSetupProgress(value: unknown): SetupChecklistProgress {
+  if (!value || typeof value !== "object") {
+    return emptySetupProgress();
+  }
+
+  const progress = value as Partial<SetupChecklistProgress>;
+  const validIds = new Set(SETUP_CHECKLIST_ITEMS.map((item) => item.id));
+  const completedItems = Array.isArray(progress.completedItems)
+    ? progress.completedItems.filter((id): id is SetupChecklistItemId =>
+        validIds.has(id as SetupChecklistItemId)
+      )
+    : [];
+
+  return {
+    completedItems: [...new Set(completedItems)],
+    dismissed: Boolean(progress.dismissed),
+    updatedAt:
+      typeof progress.updatedAt === "string"
+        ? progress.updatedAt
+        : new Date().toISOString(),
+  };
+}
+
+export function loadSetupChecklistProgress(
+  walletAddress: string | null,
+  vaultAddress: string | null
+): SetupChecklistProgress {
+  if (!walletAddress || !vaultAddress || typeof window === "undefined") {
+    return emptySetupProgress();
+  }
+
+  try {
+    const raw = window.localStorage.getItem(
+      setupStorageKey(walletAddress, vaultAddress)
+    );
+    if (!raw) return emptySetupProgress();
+    return normalizeSetupProgress(JSON.parse(raw));
+  } catch {
+    return emptySetupProgress();
+  }
+}
+
+export function saveSetupChecklistProgress(
+  walletAddress: string,
+  vaultAddress: string,
+  progress: Omit<SetupChecklistProgress, "updatedAt">
+): SetupChecklistProgress {
+  const next = {
+    ...progress,
+    completedItems: [...new Set(progress.completedItems)],
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    window.localStorage.setItem(
+      setupStorageKey(walletAddress, vaultAddress),
+      JSON.stringify(next)
+    );
+  } catch {
+    // Setup checklist progress should not block vault use.
+  }
+
+  return next;
+}
+
+export function firstIncompleteSetupItem(
+  completedItems: SetupChecklistItemId[]
+): SetupChecklistItemId | null {
+  const completed = new Set(completedItems);
+  return (
+    SETUP_CHECKLIST_ITEMS.find((item) => !completed.has(item.id))?.id ?? null
+  );
 }
 
 export function stepIndexForId(stepId: string): number {
