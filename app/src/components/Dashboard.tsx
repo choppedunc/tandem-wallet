@@ -557,6 +557,7 @@ export function Dashboard() {
         </>
       ) : (
         <VaultDetail
+          key={selectedVault.address.toBase58()}
           vault={selectedVault}
           vaultName={
             vaultNames[selectedVault.address.toBase58()] ??
