@@ -49,6 +49,7 @@ The agent does not receive the human wallet key. The agent only uses its own Sol
 ├── docs/                        # Connector and authority docs
 ├── tests/                       # Anchor test suite
 ├── scripts/                     # Repo-level safety/test scripts
+├── SECURITY.md                  # Public vulnerability reporting policy
 └── MAINNET_DEPLOYMENT_CHECKLIST.md
 ```
 
@@ -391,7 +392,7 @@ cd app
 npx vercel --prod
 ```
 
-The website is a separate static project at `/Users/max/Documents/Tandem Site` in this local workspace and deploys to:
+The marketing website is maintained as a separate static site project and deploys to:
 
 ```text
 https://www.tandemwallet.ai
@@ -442,7 +443,7 @@ Important constraints:
 - A compromised program upgrade authority is critical because it can change protocol rules.
 - A compromised protocol authority cannot directly drain vaults, but can redirect future fee economics.
 
-See `docs/admin-authorities.md`, `SECURITY_AUDIT.md`, and `SECURITY_AUDIT_2.md`.
+See `SECURITY.md` and `docs/admin-authorities.md`.
 
 ## Private Key Safety
 
@@ -501,11 +502,8 @@ The app re-announces Wallet Standard readiness and shows install entries for com
 - `packages/agent-connector/README.md`
 - `docs/agent-connector.md`
 - `docs/admin-authorities.md`
+- `SECURITY.md`
 - `MAINNET_DEPLOYMENT_CHECKLIST.md`
-- `SECURITY_AUDIT.md`
-- `SECURITY_AUDIT_2.md`
-- `Claude Audit Review.md`
-- `CLAUDE_AUDIT_REVIEW_2.md`
 
 ## License
 
