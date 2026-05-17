@@ -20,10 +20,7 @@ export type SetupChecklistItemId =
   | "deposit-usdc"
   | "deposit-agent-sol"
   | "agent-json-file"
-  | "agent-setup-command"
-  | "allowance-controls"
-  | "pause-controls"
-  | "withdraw-controls";
+  | "agent-setup-command";
 
 export type SetupChecklistItem = {
   id: SetupChecklistItemId;
@@ -95,25 +92,7 @@ export const SETUP_CHECKLIST_ITEMS: SetupChecklistItem[] = [
     id: "agent-setup-command",
     title: "Send the setup command",
     body: "Give this command to the agent. It connects the agent to this specific vault.",
-    actionLabel: "Open agent tab",
-  },
-  {
-    id: "allowance-controls",
-    title: "Allowance controls",
-    body: "Edit the per-transaction spending limit any time.",
-    actionLabel: "Review limit",
-  },
-  {
-    id: "pause-controls",
-    title: "Pause controls",
-    body: "Pause blocks agent activity. Your human wallet still controls recovery.",
-    actionLabel: "Review pause",
-  },
-  {
-    id: "withdraw-controls",
-    title: "Withdraw controls",
-    body: "The human owner can withdraw USDC from the vault.",
-    actionLabel: "Review withdraw",
+    actionLabel: "Copy command",
   },
 ];
 

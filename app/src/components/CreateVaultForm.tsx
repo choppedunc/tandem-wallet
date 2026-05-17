@@ -119,11 +119,15 @@ function DownloadKeypairButton({
 export function CreateVaultForm({
   onCreated,
   onAgentGenerated,
+  onAgentKeypairDownloaded,
   onAgentModeChange,
+  onCreateRequested,
 }: {
   onCreated: (vault: PublicKey, name: string) => void;
   onAgentGenerated?: () => void;
+  onAgentKeypairDownloaded?: () => void;
   onAgentModeChange?: (mode: "generate" | "paste") => void;
+  onCreateRequested?: () => void;
 }) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
@@ -237,6 +241,7 @@ export function CreateVaultForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    onCreateRequested?.();
     if (agentMode === "generate" && generatedPubkey && generatedSecret) {
       setError(null);
       setConfirmationStep("stored");
@@ -377,7 +382,10 @@ export function CreateVaultForm({
                         value={generatedKeypairJson}
                         publicKey={generatedPubkey}
                         attention={!generatedKeypairSaved}
-                        onDownload={() => setGeneratedKeypairSaved(true)}
+                        onDownload={() => {
+                          setGeneratedKeypairSaved(true);
+                          onAgentKeypairDownloaded?.();
+                        }}
                       />
                     </div>
                     <p className="mt-3 text-xs text-muted">

@@ -23,6 +23,7 @@ import {
   shortAddress,
   usdcToRaw,
 } from "@/lib/format";
+import { buildAgentSetupCommand } from "@/lib/agentSetup";
 import { explorerTxUrl } from "@/lib/network";
 import {
   SETUP_CHECKLIST_ITEMS,
@@ -259,13 +260,7 @@ function Stat({
   );
 }
 
-const MANUAL_SETUP_ITEMS = new Set<SetupChecklistItemId>([
-  "agent-json-file",
-  "agent-setup-command",
-  "allowance-controls",
-  "pause-controls",
-  "withdraw-controls",
-]);
+const MANUAL_SETUP_ITEMS = new Set<SetupChecklistItemId>(["agent-json-file"]);
 
 function SetupPanel({
   completedItems,
@@ -273,6 +268,7 @@ function SetupPanel({
   autoItems,
   onAction,
   onToggleItem,
+  onMarkAllDone,
   onFinish,
 }: {
   completedItems: Set<SetupChecklistItemId>;
@@ -280,6 +276,7 @@ function SetupPanel({
   autoItems: Set<SetupChecklistItemId>;
   onAction: (item: SetupChecklistItemId) => void;
   onToggleItem: (item: SetupChecklistItemId, completed: boolean) => void;
+  onMarkAllDone: () => void;
   onFinish: () => void;
 }) {
   const allComplete = SETUP_CHECKLIST_ITEMS.every((item) =>
@@ -303,8 +300,19 @@ function SetupPanel({
               when the checklist is finished.
             </p>
           </div>
-          <div className="border border-line-soft px-3 py-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-muted">
-            {completedItems.size} / {SETUP_CHECKLIST_ITEMS.length}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="border border-line-soft px-3 py-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-muted">
+              {completedItems.size} / {SETUP_CHECKLIST_ITEMS.length}
+            </div>
+            {!allComplete ? (
+              <button
+                type="button"
+                onClick={onMarkAllDone}
+                className="border border-line-soft px-3 py-2 text-[0.65rem] font-display uppercase tracking-[0.14em] text-muted transition-colors hover:border-line hover:text-text"
+              >
+                Mark all done
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -426,6 +434,7 @@ export function VaultDetail({
   const wallet = useAnchorWallet();
   const walletAddress = wallet?.publicKey.toBase58() ?? null;
   const [tab, setTab] = useState<VaultTab>("setup");
+  const [appUrl, setAppUrl] = useState("http://localhost:3000");
   const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null);
   const [agentSolBalance, setAgentSolBalance] = useState<number | null>(null);
   const [pendingProposalCount, setPendingProposalCount] = useState(0);
@@ -456,6 +465,10 @@ export function VaultDetail({
   const directSendSeenIdsRef = useRef<Set<string>>(new Set());
   const directSendMonitorReadyRef = useRef(false);
   const directSendMonitorInFlightRef = useRef(false);
+
+  useEffect(() => {
+    setAppUrl(window.location.origin);
+  }, []);
 
   useEffect(() => {
     if (!initialTab) return;
@@ -926,6 +939,14 @@ export function VaultDetail({
     agentSolBalance !== null && agentSolBalance <= 0;
   const needsAgentSetupAttention = needsAgentSolTopUp || !agentCommandCopied;
   const needsFundsAttention = needsUsdcTopUp || needsAgentSolTopUp;
+  const setupCommand = useMemo(
+    () =>
+      buildAgentSetupCommand({
+        vaultAddress: vault.address.toBase58(),
+        appUrl,
+      }),
+    [appUrl, vault.address]
+  );
   const autoCompletedSetupItems = useMemo<SetupChecklistItemId[]>(() => {
     const completed: SetupChecklistItemId[] = [];
     if (usdcBalance !== null && usdcBalance >= SETUP_USDC_THRESHOLD_RAW) {
@@ -1033,7 +1054,12 @@ export function VaultDetail({
     });
   }
 
-  function handleSetupAction(item: SetupChecklistItemId) {
+  function markSetupCommandCopied() {
+    saveAgentCommandCopied(vault.address);
+    setAgentCommandCopied(true);
+  }
+
+  async function handleSetupAction(item: SetupChecklistItemId) {
     if (item === "deposit-usdc") {
       openActionModal("usdc");
       return;
@@ -1042,21 +1068,35 @@ export function VaultDetail({
       openActionModal("sol");
       return;
     }
-    if (item === "allowance-controls") {
-      openActionModal("limit");
-      return;
-    }
-    if (item === "withdraw-controls") {
-      switchTab("funds");
-      return;
-    }
-    if (item === "pause-controls") {
-      switchTab("overview");
-      return;
-    }
-    if (item === "agent-json-file" || item === "agent-setup-command") {
+    if (item === "agent-json-file") {
       switchTab("agent");
+      return;
     }
+    if (item === "agent-setup-command") {
+      try {
+        await navigator.clipboard.writeText(setupCommand);
+        markSetupCommandCopied();
+        saveSetupProgress({
+          completedItems: [
+            ...new Set<SetupChecklistItemId>([
+              ...setupProgress.completedItems,
+              "agent-setup-command",
+            ]),
+          ],
+          dismissed: false,
+        });
+      } catch {
+        setActionError("Could not copy the setup command. Open the Agent tab to copy it manually.");
+      }
+    }
+  }
+
+  function markAllSetupDone() {
+    markSetupCommandCopied();
+    saveSetupProgress({
+      completedItems: SETUP_CHECKLIST_ITEMS.map((item) => item.id),
+      dismissed: false,
+    });
   }
 
   function finishSetup() {
@@ -1160,6 +1200,7 @@ export function VaultDetail({
             autoItems={autoCompletedSetupItemSet}
             onAction={handleSetupAction}
             onToggleItem={toggleSetupItem}
+            onMarkAllDone={markAllSetupDone}
             onFinish={finishSetup}
           />
         )}

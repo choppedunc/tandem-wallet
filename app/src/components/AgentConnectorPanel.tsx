@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { NETWORK, PROGRAM_ID, RPC_URL } from "@/lib/network";
 import { shortAddress } from "@/lib/format";
+import { buildAgentSetupCommand } from "@/lib/agentSetup";
 import type { VaultData } from "./VaultDetail";
 import { AttentionPulse } from "./AttentionPulse";
 
@@ -112,21 +113,9 @@ export function AgentConnectorPanel({
     setAppUrl(window.location.origin);
   }, []);
 
-  const keypairDiscoveryCommand =
-    'KEYPAIR_PATH="${TANDEM_AGENT_KEYPAIR:-$(find "$PWD" "$PWD/web" "$HOME/Downloads" "$HOME/.tandem" -maxdepth 1 \\( -name "tandem-agent-keypair*.json" -o -name "agent-keypair.json" \\) -type f -print -quit 2>/dev/null)}"; test -n "$KEYPAIR_PATH" || { echo "Tandem agent keypair file not found. Save tandem-agent-keypair*.json in the current folder, ./web, ~/Downloads, or ~/.tandem."; exit 1; };';
-
   const packageSetupCommand = useMemo(
-    () =>
-      [
-        keypairDiscoveryCommand,
-        "npx -y @tandemwallet/agent@latest setup",
-        `--vault ${vaultAddress}`,
-        '--agent-keypair "$KEYPAIR_PATH"',
-        `--rpc-url ${RPC_URL}`,
-        `--program-id ${programId}`,
-        `--app-url ${appUrl}`,
-      ].join(" "),
-    [appUrl, keypairDiscoveryCommand, programId, vaultAddress]
+    () => buildAgentSetupCommand({ vaultAddress, appUrl }),
+    [appUrl, vaultAddress]
   );
 
   const mcpConfig = useMemo(

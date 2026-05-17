@@ -343,6 +343,11 @@ export function Dashboard() {
     setOnboardingStep("download-keypair", true);
   }, [onboardingStep.id, onboardingVisible, setOnboardingStep]);
 
+  const handleAgentKeypairDownloaded = useCallback(() => {
+    if (!onboardingVisible || onboardingStep.id !== "download-keypair") return;
+    setOnboardingStep("create-vault", true);
+  }, [onboardingStep.id, onboardingVisible, setOnboardingStep]);
+
   const handleAgentModeChange = useCallback(
     (mode: "generate" | "paste") => {
       if (!onboardingVisible || mode !== "paste") return;
@@ -356,6 +361,11 @@ export function Dashboard() {
     },
     [onboardingStep.id, onboardingVisible, setOnboardingStep]
   );
+
+  const handleCreateVaultRequested = useCallback(() => {
+    if (!onboardingVisible || onboardingStep.id !== "create-vault") return;
+    finishOnboarding();
+  }, [finishOnboarding, onboardingStep.id, onboardingVisible]);
 
   useEffect(() => {
     if (!walletAddress || onboardingProgress) return;
@@ -391,7 +401,7 @@ export function Dashboard() {
         onFinish={finishOnboarding}
       />
       <OnboardingControl
-        visible={Boolean(walletAddress)}
+        visible={Boolean(walletAddress) && !onboardingProgress?.completed}
         active={onboardingVisible}
         hasProgress={Boolean(onboardingProgress)}
         completed={Boolean(onboardingProgress?.completed)}
@@ -460,7 +470,9 @@ export function Dashboard() {
             refresh();
           }}
           onAgentGenerated={handleAgentGenerated}
+          onAgentKeypairDownloaded={handleAgentKeypairDownloaded}
           onAgentModeChange={handleAgentModeChange}
+          onCreateRequested={handleCreateVaultRequested}
         />
         {onboardingUi}
       </>
@@ -537,7 +549,9 @@ export function Dashboard() {
               refresh();
             }}
             onAgentGenerated={handleAgentGenerated}
+            onAgentKeypairDownloaded={handleAgentKeypairDownloaded}
             onAgentModeChange={handleAgentModeChange}
+            onCreateRequested={handleCreateVaultRequested}
           />
           {onboardingUi}
         </>
