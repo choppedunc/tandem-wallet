@@ -107,6 +107,7 @@ function DownloadKeypairButton({
       type="button"
       onClick={download}
       disabled={!value}
+      data-onboarding="agent-keypair-download"
       className="inline-flex shrink-0 items-center gap-2 border border-line bg-[rgba(10,186,181,0.12)] px-4 py-2.5 text-[0.65rem] font-display uppercase tracking-[0.14em] text-text hover:bg-[rgba(10,186,181,0.18)] disabled:opacity-50"
     >
       {attention ? <AttentionPulse label="Download agent keypair" /> : null}
@@ -243,7 +244,7 @@ export function CreateVaultForm({
       </p>
 
       <form onSubmit={submit} className="space-y-7">
-        <div>
+        <div data-onboarding="vault-name">
           <label className="block text-xs uppercase tracking-[0.14em] text-muted font-display mb-3">
             Vault name
           </label>
@@ -256,7 +257,31 @@ export function CreateVaultForm({
           />
         </div>
 
-        <div>
+        <div data-onboarding="spending-limit">
+          <label className="block text-xs uppercase tracking-[0.14em] text-muted font-display mb-3">
+            Spending limit (USDC)
+          </label>
+          <div className="relative max-w-xs">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={limit}
+              onChange={(e) => setLimit(e.target.value)}
+              className="w-full px-3 py-2.5 pr-16 border border-line-soft bg-[rgba(2,10,12,0.7)] text-text font-display focus:outline-none focus:border-line"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs uppercase tracking-wider text-muted font-display">
+              USDC
+            </span>
+          </div>
+          <p className="text-xs text-muted mt-2">
+            Per-transaction limit your agent can spend without your approval.
+            Set to 0 to require your approval on every send. You can change
+            this limit at any time from the dashboard.
+          </p>
+        </div>
+
+        <div data-onboarding="agent-keypair">
           <label className="block text-xs uppercase tracking-[0.14em] text-muted font-display mb-3">
             Agent
           </label>
@@ -422,30 +447,6 @@ export function CreateVaultForm({
           )}
         </div>
 
-        <div>
-          <label className="block text-xs uppercase tracking-[0.14em] text-muted font-display mb-3">
-            Spending limit (USDC)
-          </label>
-          <div className="relative max-w-xs">
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={limit}
-              onChange={(e) => setLimit(e.target.value)}
-              className="w-full px-3 py-2.5 pr-16 border border-line-soft bg-[rgba(2,10,12,0.7)] text-text font-display focus:outline-none focus:border-line"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs uppercase tracking-wider text-muted font-display">
-              USDC
-            </span>
-          </div>
-          <p className="text-xs text-muted mt-2">
-            Per-transaction limit your agent can spend without your approval.
-            Set to 0 to require your approval on every send. You can change
-            this limit at any time from the dashboard.
-          </p>
-        </div>
-
         {error && (
           <div className="border border-line p-3 text-sm text-accent-2 bg-[rgba(10,186,181,0.06)]">
             {error}
@@ -455,6 +456,7 @@ export function CreateVaultForm({
         <button
           type="submit"
           disabled={submitting}
+          data-onboarding="create-vault"
           className="brackets-accent w-full py-3 text-sm font-bold uppercase tracking-[0.14em] text-[#032b2a] disabled:opacity-50"
         >
           {submitting ? "Creating…" : "Create vault"}

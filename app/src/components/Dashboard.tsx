@@ -17,7 +17,20 @@ import {
   saveVaultCreatedAt,
   saveVaultName,
 } from "@/lib/vaultNames";
+import {
+  FIRST_ONBOARDING_STEP_ID,
+  FINAL_ONBOARDING_STEP_ID,
+  ONBOARDING_STEPS,
+  loadOnboardingProgress,
+  saveOnboardingProgress,
+  stepIndexForId,
+  type OnboardingProgress,
+} from "@/lib/onboarding";
 import { CreateVaultForm } from "./CreateVaultForm";
+import {
+  OnboardingControl,
+  OnboardingOverlay,
+} from "./OnboardingOverlay";
 import { VaultDetail, type VaultData, type VaultTab } from "./VaultDetail";
 
 const WalletMultiButton = dynamic(
@@ -101,6 +114,12 @@ export function Dashboard() {
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [onboardingProgress, setOnboardingProgress] =
+    useState<OnboardingProgress | null>(null);
+  const [onboardingActive, setOnboardingActive] = useState(false);
+  const [onboardingLoadedWallet, setOnboardingLoadedWallet] = useState<
+    string | null
+  >(null);
   const appliedDeepLinkVaultRef = useRef(false);
   const refreshInFlightRef = useRef(false);
   const metadataSyncInFlightRef = useRef(false);
@@ -118,6 +137,15 @@ export function Dashboard() {
 
   useEffect(() => {
     metadataSyncSkippedRef.current = false;
+  }, [walletAddress]);
+
+  useEffect(() => {
+    const progress = loadOnboardingProgress(walletAddress);
+    setOnboardingProgress(progress);
+    setOnboardingLoadedWallet(walletAddress);
+    setOnboardingActive(
+      Boolean(progress && !progress.completed && !progress.skipped)
+    );
   }, [walletAddress]);
 
   const refresh = useCallback(async () => {
@@ -224,6 +252,149 @@ export function Dashboard() {
     }
   }, [program, wallet, refresh]);
 
+  const onboardingStepIndex = stepIndexForId(
+    onboardingProgress?.stepId ?? FIRST_ONBOARDING_STEP_ID
+  );
+  const onboardingStep = ONBOARDING_STEPS[onboardingStepIndex];
+  const onboardingVisible =
+    onboardingActive &&
+    Boolean(onboardingProgress) &&
+    !onboardingProgress?.completed &&
+    !onboardingProgress?.skipped;
+  const createVaultVisible =
+    Boolean(walletAddress) &&
+    ((vaults !== null && vaults.length === 0) || showCreateVault);
+  const hasVaults = Boolean(vaults && vaults.length > 0);
+
+  const setOnboardingStep = useCallback(
+    (stepId: string, active = true) => {
+      if (!walletAddress) return;
+      const next = saveOnboardingProgress(walletAddress, {
+        stepId,
+        completed: false,
+        skipped: false,
+      });
+      setOnboardingProgress(next);
+      setOnboardingActive(active);
+    },
+    [walletAddress]
+  );
+
+  const restartOnboarding = useCallback(() => {
+    setOnboardingStep(FIRST_ONBOARDING_STEP_ID, true);
+  }, [setOnboardingStep]);
+
+  const resumeOnboarding = useCallback(() => {
+    if (!walletAddress) return;
+    if (
+      !onboardingProgress ||
+      onboardingProgress.completed ||
+      onboardingProgress.skipped
+    ) {
+      restartOnboarding();
+      return;
+    }
+    setOnboardingActive(true);
+  }, [onboardingProgress, restartOnboarding, walletAddress]);
+
+  const skipOnboarding = useCallback(() => {
+    if (!walletAddress) return;
+    const next = saveOnboardingProgress(walletAddress, {
+      stepId: onboardingStep.id,
+      completed: false,
+      skipped: true,
+    });
+    setOnboardingProgress(next);
+    setOnboardingActive(false);
+  }, [onboardingStep.id, walletAddress]);
+
+  const finishOnboarding = useCallback(() => {
+    if (!walletAddress) return;
+    const next = saveOnboardingProgress(walletAddress, {
+      stepId: FINAL_ONBOARDING_STEP_ID,
+      completed: true,
+      skipped: false,
+    });
+    setOnboardingProgress(next);
+    setOnboardingActive(false);
+  }, [walletAddress]);
+
+  const nextOnboardingStep = useCallback(() => {
+    const nextStep = ONBOARDING_STEPS[onboardingStepIndex + 1];
+    if (!nextStep) {
+      finishOnboarding();
+      return;
+    }
+    setOnboardingStep(nextStep.id, true);
+  }, [finishOnboarding, onboardingStepIndex, setOnboardingStep]);
+
+  const previousOnboardingStep = useCallback(() => {
+    const previousStep =
+      ONBOARDING_STEPS[Math.max(0, onboardingStepIndex - 1)];
+    setOnboardingStep(previousStep.id, true);
+  }, [onboardingStepIndex, setOnboardingStep]);
+
+  useEffect(() => {
+    if (!walletAddress || onboardingProgress) return;
+    if (onboardingLoadedWallet !== walletAddress) return;
+    if (!createVaultVisible) return;
+    setOnboardingStep(FIRST_ONBOARDING_STEP_ID, true);
+  }, [
+    createVaultVisible,
+    onboardingLoadedWallet,
+    onboardingProgress,
+    setOnboardingStep,
+    walletAddress,
+  ]);
+
+  useEffect(() => {
+    if (!onboardingVisible) return;
+    if (onboardingStep.id !== "create-vault") return;
+    if (!hasVaults || showCreateVault) return;
+    setOnboardingStep("deposit-usdc", true);
+  }, [
+    hasVaults,
+    onboardingStep.id,
+    onboardingVisible,
+    setOnboardingStep,
+    showCreateVault,
+  ]);
+
+  const onboardingNextDisabled =
+    onboardingStep.id === "create-vault" && !hasVaults;
+  const onboardingNextLabel = onboardingNextDisabled
+    ? "Create vault first"
+    : "Next";
+
+  const onboardingUi = walletAddress ? (
+    <>
+      <OnboardingOverlay
+        active={onboardingVisible}
+        step={onboardingStep}
+        stepIndex={onboardingStepIndex}
+        totalSteps={ONBOARDING_STEPS.length}
+        nextDisabled={onboardingNextDisabled}
+        nextLabel={onboardingNextLabel}
+        onNext={nextOnboardingStep}
+        onBack={previousOnboardingStep}
+        onSkip={skipOnboarding}
+        onFinish={finishOnboarding}
+        onRestart={restartOnboarding}
+      />
+      <OnboardingControl
+        visible={Boolean(walletAddress)}
+        active={onboardingVisible}
+        hasProgress={Boolean(onboardingProgress)}
+        completed={Boolean(onboardingProgress?.completed)}
+        skipped={Boolean(onboardingProgress?.skipped)}
+        stepIndex={onboardingStepIndex}
+        totalSteps={ONBOARDING_STEPS.length}
+        onResume={resumeOnboarding}
+        onRestart={restartOnboarding}
+      />
+    </>
+  ) : null;
+
   if (!wallet) {
     return (
       <div className="brackets p-12 text-center">
@@ -270,14 +441,17 @@ export function Dashboard() {
 
   if (!vaults || vaults.length === 0) {
     return (
-      <CreateVaultForm
-        onCreated={(vault, name) => {
-          setVaultNames(saveVaultName(vault, name));
-          saveVaultCreatedAt(vault);
-          setSelectedVaultAddress(vault.toBase58());
-          refresh();
-        }}
-      />
+      <>
+        <CreateVaultForm
+          onCreated={(vault, name) => {
+            setVaultNames(saveVaultName(vault, name));
+            saveVaultCreatedAt(vault);
+            setSelectedVaultAddress(vault.toBase58());
+            refresh();
+          }}
+        />
+        {onboardingUi}
+      </>
     );
   }
 
@@ -340,15 +514,18 @@ export function Dashboard() {
         </div>
       )}
       {showCreateVault ? (
-        <CreateVaultForm
-          onCreated={(vault, name) => {
-            setVaultNames(saveVaultName(vault, name));
-            saveVaultCreatedAt(vault);
-            setSelectedVaultAddress(vault.toBase58());
-            setShowCreateVault(false);
-            refresh();
-          }}
-        />
+        <>
+          <CreateVaultForm
+            onCreated={(vault, name) => {
+              setVaultNames(saveVaultName(vault, name));
+              saveVaultCreatedAt(vault);
+              setSelectedVaultAddress(vault.toBase58());
+              setShowCreateVault(false);
+              refresh();
+            }}
+          />
+          {onboardingUi}
+        </>
       ) : (
         <VaultDetail
           vault={selectedVault}
@@ -359,8 +536,14 @@ export function Dashboard() {
           onChange={refresh}
           initialTab={deepLink.tab ?? undefined}
           initialProposal={deepLink.proposal}
+          onboardingStepId={
+            onboardingVisible && onboardingStep.phase === "vault"
+              ? onboardingStep.id
+              : null
+          }
         />
       )}
+      {!showCreateVault && onboardingUi}
     </div>
   );
 }

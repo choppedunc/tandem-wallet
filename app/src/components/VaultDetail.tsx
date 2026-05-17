@@ -55,6 +55,16 @@ const LIVE_REFRESH_INTERVAL_MS = 45_000;
 const LIVE_REFRESH_DEBOUNCE_MS = 750;
 const SETUP_USDC_THRESHOLD_RAW = BigInt(1_000_000);
 const AGENT_COMMAND_COPIED_STORAGE_KEY = "tandem:agent-command-copied:v1";
+const ONBOARDING_STEP_TABS: Partial<Record<string, VaultTab>> = {
+  "deposit-usdc": "overview",
+  "deposit-agent-sol": "overview",
+  "agent-json-file": "agent",
+  "agent-setup-command": "agent",
+  "allowance-controls": "overview",
+  "pause-controls": "overview",
+  "withdraw-controls": "funds",
+  "setup-test": "agent",
+};
 
 type ActionModal = "usdc" | "sol" | "limit" | null;
 
@@ -188,6 +198,7 @@ function Stat({
   value,
   accent,
   tone = "default",
+  onboardingId,
   actionLabel,
   actionDisabled,
   onAction,
@@ -198,6 +209,7 @@ function Stat({
   value: React.ReactNode;
   accent?: string;
   tone?: "default" | "danger";
+  onboardingId?: string;
   actionLabel?: string;
   actionDisabled?: boolean;
   onAction?: () => void;
@@ -208,6 +220,7 @@ function Stat({
 
   return (
     <div
+      data-onboarding={onboardingId}
       className={`border px-4 py-3 ${
         isDanger
           ? "border-[#d45f67]/55 bg-[rgba(58,23,25,0.58)]"
@@ -253,12 +266,14 @@ export function VaultDetail({
   onChange,
   initialTab,
   initialProposal,
+  onboardingStepId,
 }: {
   vault: VaultData;
   vaultName?: string;
   onChange: () => void;
   initialTab?: VaultTab;
   initialProposal?: string | null;
+  onboardingStepId?: string | null;
 }) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
@@ -330,6 +345,13 @@ export function VaultDetail({
     },
     []
   );
+
+  useEffect(() => {
+    if (!onboardingStepId) return;
+    const targetTab = ONBOARDING_STEP_TABS[onboardingStepId];
+    if (!targetTab || targetTab === tab) return;
+    switchTab(targetTab);
+  }, [onboardingStepId, switchTab, tab]);
 
   const refreshBalances = useCallback(async () => {
     if (balancesRefreshInFlightRef.current) return;
@@ -794,6 +816,7 @@ export function VaultDetail({
           <Stat
             label="USDC"
             value={usdcBalance === null ? "…" : formatUsdc(Number(usdcBalance))}
+            onboardingId="deposit-usdc"
             actionLabel="Top up"
             attention={needsUsdcTopUp}
             attentionLabel="Vault needs USDC"
@@ -802,6 +825,7 @@ export function VaultDetail({
           <Stat
             label="Agent SOL"
             value={agentSolBalance === null ? "…" : formatSol(agentSolBalance)}
+            onboardingId="deposit-agent-sol"
             actionLabel="Top up"
             attention={needsAgentSolTopUp}
             attentionLabel="Agent wallet needs SOL"
@@ -810,6 +834,7 @@ export function VaultDetail({
           <Stat
             label="Limit"
             value={formatUsdc(vault.spendingLimit)}
+            onboardingId="allowance-controls"
             actionLabel="Edit"
             onAction={() => openActionModal("limit")}
           />
@@ -818,6 +843,7 @@ export function VaultDetail({
             value={vault.paused ? "Agent paused" : "Active"}
             accent={vault.paused ? "text-[#ffd7da]" : "text-accent"}
             tone={vault.paused ? "danger" : "default"}
+            onboardingId="pause-controls"
             actionLabel={
               statusBusy ? "Working" : vault.paused ? "Resume" : "Pause"
             }

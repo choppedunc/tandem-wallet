@@ -271,7 +271,7 @@ function WithdrawPanel({
   }
 
   return (
-    <div className="brackets p-5">
+    <div className="brackets p-5" data-onboarding="withdraw-controls">
       <div className="mb-4">
         <p className="mb-2 font-display text-[0.65rem] uppercase tracking-[0.18em] text-accent-2">
           Withdraw USDC

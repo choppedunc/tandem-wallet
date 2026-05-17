@@ -174,7 +174,10 @@ export function AgentConnectorPanel({
         agent can follow immediately.
       </p>
 
-      <div className="mb-5 border border-line-soft bg-[rgba(2,10,12,0.52)] p-4 text-sm leading-relaxed text-muted">
+      <div
+        className="mb-5 border border-line-soft bg-[rgba(2,10,12,0.52)] p-4 text-sm leading-relaxed text-muted"
+        data-onboarding="agent-json-file"
+      >
         If Tandem generated the agent wallet, give your agent the downloaded
         Tandem keypair file first. If you pasted an existing agent wallet,
         your agent needs that wallet&apos;s matching Solana keypair file. If
@@ -207,12 +210,14 @@ export function AgentConnectorPanel({
         </div>
       )}
 
-      <CodeBlock
-        label="Setup command"
-        value={packageSetupCommand}
-        copyLabel="Copy command"
-        onCopy={onCommandCopied}
-      />
+      <div data-onboarding="agent-setup-command">
+        <CodeBlock
+          label="Setup command"
+          value={packageSetupCommand}
+          copyLabel="Copy command"
+          onCopy={onCommandCopied}
+        />
+      </div>
 
       <div className="mt-5 grid gap-2 md:grid-cols-3">
         <div className="border border-line-soft bg-[rgba(3,17,19,0.62)] p-3">
@@ -263,11 +268,14 @@ export function AgentConnectorPanel({
       )}
 
       {commandCopied && (
-        <section className="brackets p-6">
+        <section className="brackets p-6" data-onboarding="agent-json-file">
           <p className="mb-4 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
             Connection
           </p>
-          <details className="border border-line-soft p-4">
+          <details
+            className="border border-line-soft p-4"
+            data-onboarding="agent-setup-command"
+          >
             <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
               <span>Agent Setup Command</span>
               <InfoTooltip label="Kept here in case you need to reconnect the agent, set it up on another machine, or copy the setup command again." />
@@ -336,7 +344,7 @@ export function AgentConnectorPanel({
         </div>
       </section>
 
-      <section className="brackets p-6">
+      <section className="brackets p-6" data-onboarding="setup-test">
         <p className="mb-3 text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
           Agent safety
         </p>
