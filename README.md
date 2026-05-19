@@ -125,6 +125,52 @@ The Anchor program exposes:
 
 Program events include vault initialization, sends, proposal creation/approval/cancellation, whitelist changes, limit changes, pause/unpause, protocol initialization, staking, unstaking, and reward claims.
 
+## Mainnet Analytics
+
+The app includes mainnet-only analytics ingestion for onboarding and payment metrics. It parses on-chain Tandem program events and stores them in Postgres/Neon using `DATABASE_URL`.
+
+Tracked events:
+
+- `VaultInitialized`: vault creation count and unique human wallets.
+- `UsdcSent`: fulfilled direct-send count, whitelisted send count, USDC volume, and protocol fee volume.
+- `ProposalCreated`: proposal submission count and memo context.
+- `ProposalApproved`: fulfilled approved-proposal count, USDC volume, and protocol fee volume.
+- `ProposalCancelled`: rejected/cancelled proposal count.
+
+The ingestion route writes only when `NEXT_PUBLIC_NETWORK=mainnet-beta`. Devnet calls are skipped unless `dryRun=1`, which parses recent events without writing them.
+
+Required production env:
+
+```text
+DATABASE_URL=
+ANALYTICS_ADMIN_TOKEN=
+```
+
+Optional env:
+
+```text
+CRON_SECRET=
+ANALYTICS_SYNC_LIMIT=50
+```
+
+Sync recent events:
+
+```sh
+curl -H "Authorization: Bearer $ANALYTICS_ADMIN_TOKEN" \
+  "https://app.tandemwallet.ai/api/analytics/sync?limit=50"
+```
+
+For historical backfill, call the same route with `before=<oldestFetchedSignature>` from the previous response. Backfill writes events but does not move the live sync cursor.
+
+Read totals:
+
+```sh
+curl -H "Authorization: Bearer $ANALYTICS_ADMIN_TOKEN" \
+  "https://app.tandemwallet.ai/api/analytics/stats"
+```
+
+The stats endpoint returns vaults created, fulfilled transaction counts, direct-send volume, approved-proposal volume, total fulfilled USDC volume, protocol fee volume, proposal counts, and latest indexed timestamps. USDC values are stored as raw integer units with 6 decimals and formatted for display in the response.
+
 ## Protocol Fees
 
 The current protocol fee setting is configured through protocol initialization/update scripts. The app and docs use a 0.25% protocol fee example.
@@ -295,7 +341,7 @@ NEXT_PUBLIC_PROGRAM_ID=6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ
 NEXT_PUBLIC_USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
 ```
 
-Optional hosted metadata sync uses `DATABASE_URL`.
+Optional hosted metadata sync and mainnet analytics use `DATABASE_URL`.
 
 ## Validation
 

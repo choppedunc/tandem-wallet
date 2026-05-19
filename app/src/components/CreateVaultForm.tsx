@@ -375,7 +375,9 @@ export function CreateVaultForm({
                         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
                           Download this file and give it to your agent, or
                           store it somewhere your agent can access. Tandem
-                          setup will find, verify, and import it.
+                          setup will find, verify, and import it. Alternatively,
+                          you can manually save the keypair from Advanced:
+                          backup keys below.
                         </p>
                       </div>
                       <DownloadKeypairButton
@@ -429,20 +431,41 @@ export function CreateVaultForm({
                             {generatedSecret}
                           </code>
                         </div>
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-soft pt-4">
-                          <p className="text-xs text-muted">
-                            Use raw JSON only if your agent cannot receive file
-                            uploads. Save the copied text as{" "}
-                            <code className="break-all font-display text-text">
-                              {generatedKeypairFileName}
-                            </code>
-                            .
-                          </p>
-                          <CopyButton
-                            value={generatedKeypairJson}
-                            label="Copy JSON"
-                            onCopy={() => setGeneratedKeypairSaved(true)}
-                          />
+                        <div className="space-y-3 border-t border-line-soft pt-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <div className="mb-1.5 text-xs uppercase tracking-[0.14em] text-accent font-display">
+                                Manual save option
+                              </div>
+                              <p className="text-xs leading-relaxed text-muted">
+                                If you prefer not to use a browser download,
+                                copy the raw JSON, paste it into a plain-text
+                                editor, and save it as{" "}
+                                <code className="break-all font-display text-text">
+                                  {generatedKeypairFileName}
+                                </code>
+                                .
+                              </p>
+                            </div>
+                            <CopyButton
+                              value={generatedKeypairJson}
+                              label="Copy JSON"
+                              onCopy={() => setGeneratedKeypairSaved(true)}
+                            />
+                          </div>
+                          <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed text-muted">
+                            <li>
+                              Use plain text only. In TextEdit, choose Format
+                              &gt; Make Plain Text before saving.
+                            </li>
+                            <li>
+                              Keep the filename ending in{" "}
+                              <code className="font-display text-text">
+                                .json
+                              </code>
+                              , then give that saved file to your agent.
+                            </li>
+                          </ul>
                         </div>
                         <p className="text-xs text-muted">
                           Keep all private key formats out of repos and chats.

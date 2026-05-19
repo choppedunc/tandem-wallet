@@ -229,7 +229,26 @@ export function OnboardingOverlay({
         role="dialog"
         aria-label="Tandem setup guide"
       >
-        <div className="mb-3">
+        <button
+          type="button"
+          aria-label="Close tutorial"
+          onClick={onSkip}
+          className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center border border-line-soft text-muted transition-colors hover:border-line hover:text-text"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <path d="M6 6l12 12" />
+            <path d="M18 6L6 18" />
+          </svg>
+        </button>
+        <div className="mb-3 pr-9">
           <p className="font-display text-[0.62rem] uppercase tracking-[0.18em] text-accent-2">
             Step {stepIndex + 1} / {totalSteps}
           </p>

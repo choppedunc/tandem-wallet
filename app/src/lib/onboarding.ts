@@ -57,7 +57,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: "download-keypair",
     title: "Download the keypair JSON",
-    body: "Tandem does not store this file. Save it and give it to your agent.",
+    body: "Recommended: download the JSON and give it to your agent. If you avoid browser downloads, open Advanced and manually save the copied JSON as a plain-text .json file.",
     targetId: "agent-keypair-download",
     fallbackTargetId: "agent-keypair",
   },
@@ -85,7 +85,7 @@ export const SETUP_CHECKLIST_ITEMS: SetupChecklistItem[] = [
   {
     id: "agent-json-file",
     title: "Give the agent the JSON file",
-    body: "Upload the downloaded file to the agent, or store it somewhere the agent can access. Click Done after that is handled.",
+    body: "Upload the downloaded or manually saved JSON file to the agent, or store it somewhere the agent can access. Click Done after that is handled.",
     actionLabel: "Open agent tab",
   },
   {
