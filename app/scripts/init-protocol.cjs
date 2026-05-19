@@ -2,6 +2,7 @@ const anchor = require("@coral-xyz/anchor");
 const {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   createMint,
   getAssociatedTokenAddressSync,
   getOrCreateAssociatedTokenAccount,
@@ -121,6 +122,19 @@ async function main() {
     );
     createdTandemMint = true;
   }
+
+  const tandemMintInfo = await connection.getAccountInfo(tandemMint);
+  if (!tandemMintInfo) {
+    throw new Error(`TANDEM_MINT account not found: ${tandemMint.toBase58()}`);
+  }
+  if (
+    !tandemMintInfo.owner.equals(TOKEN_PROGRAM_ID) &&
+    !tandemMintInfo.owner.equals(TOKEN_2022_PROGRAM_ID)
+  ) {
+    throw new Error(`TANDEM_MINT is not owned by a supported token program: ${tandemMintInfo.owner.toBase58()}`);
+  }
+  const tandemTokenProgram = tandemMintInfo.owner;
+
   const treasuryAta = await getOrCreateAssociatedTokenAccount(
     connection,
     authorityKeypair,
@@ -128,7 +142,12 @@ async function main() {
     treasuryOwner
   );
   const stakerRewardAta = getAssociatedTokenAddressSync(usdcMint, protocolConfig, true);
-  const stakeTandemAta = getAssociatedTokenAddressSync(tandemMint, protocolConfig, true);
+  const stakeTandemAta = getAssociatedTokenAddressSync(
+    tandemMint,
+    protocolConfig,
+    true,
+    tandemTokenProgram
+  );
 
   const signature = await program.methods
     .initializeProtocol(feeBps)
@@ -144,6 +163,7 @@ async function main() {
       programData,
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
+      tandemTokenProgram,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
     })
@@ -158,6 +178,7 @@ async function main() {
     feeBps,
     usdcMint: usdcMint.toBase58(),
     tandemMint: tandemMint.toBase58(),
+    tandemTokenProgram: tandemTokenProgram.toBase58(),
     tandemMintCreated: createdTandemMint,
     stakerRewardAta: stakerRewardAta.toBase58(),
     stakeTandemAta: stakeTandemAta.toBase58(),

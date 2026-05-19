@@ -89,18 +89,21 @@ SOL sent to the agent wallet, not the vault. This pays gas for agent-initiated t
 
 ## Current Program
 
-Program ID in this repo:
+Mainnet program:
 
 ```text
-6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ
+DLVHJQd8LUbypaoguREZ1sek4E7zeqPHYvw62KceFmQr
 ```
 
 Configured networks:
 
-- Localnet: `6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ`
-- Devnet: `6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ`
+- Mainnet: `DLVHJQd8LUbypaoguREZ1sek4E7zeqPHYvw62KceFmQr`
+- Localnet: `DLVHJQd8LUbypaoguREZ1sek4E7zeqPHYvw62KceFmQr`
+- Devnet legacy deployment: `6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ`
 
 The app defaults to devnet through `app/.env.example`.
+
+Mainnet authority split, protocol config, treasury, and fee policy are documented in `docs/admin-authorities.md`.
 
 ## On-Chain Instructions
 

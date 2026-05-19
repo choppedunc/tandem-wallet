@@ -4,7 +4,10 @@ use crate::helpers;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::TokenAccount;
+use anchor_spl::token_interface::{
+    self, Mint, TokenAccount as InterfaceTokenAccount, TokenInterface, TransferChecked,
+};
 
 #[derive(Accounts)]
 pub struct Unstake<'info> {
@@ -34,15 +37,16 @@ pub struct Unstake<'info> {
         constraint = staker_tandem_ata.owner == staker.key()
             @ VaultError::InvalidStakerTandemAta,
     )]
-    pub staker_tandem_ata: Account<'info, TokenAccount>,
+    pub staker_tandem_ata: InterfaceAccount<'info, InterfaceTokenAccount>,
 
     /// Protocol's TANDEM ATA where staked tokens are held
     #[account(
         mut,
         associated_token::mint = tandem_mint,
         associated_token::authority = protocol_config,
+        associated_token::token_program = tandem_token_program,
     )]
-    pub stake_tandem_ata: Account<'info, TokenAccount>,
+    pub stake_tandem_ata: InterfaceAccount<'info, InterfaceTokenAccount>,
 
     /// Staker reward USDC ATA (for balance check in update_rewards)
     #[account(
@@ -57,8 +61,8 @@ pub struct Unstake<'info> {
         constraint = tandem_mint.key() == protocol_config.tandem_mint
             @ VaultError::InvalidTandemMint,
     )]
-    pub tandem_mint: Account<'info, Mint>,
-    pub token_program: Program<'info, Token>,
+    pub tandem_mint: InterfaceAccount<'info, Mint>,
+    pub tandem_token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 }
 
@@ -82,9 +86,11 @@ pub fn handler(ctx: Context<Unstake>) -> Result<()> {
 
     // Grab account infos before mutable borrow
     let config_info = ctx.accounts.protocol_config.to_account_info();
-    let token_info = ctx.accounts.token_program.to_account_info();
+    let token_info = ctx.accounts.tandem_token_program.to_account_info();
     let from_info = ctx.accounts.stake_tandem_ata.to_account_info();
+    let mint_info = ctx.accounts.tandem_mint.to_account_info();
     let to_info = ctx.accounts.staker_tandem_ata.to_account_info();
+    let tandem_decimals = ctx.accounts.tandem_mint.decimals;
 
     let config = &mut ctx.accounts.protocol_config;
     let stake_account = &mut ctx.accounts.stake_account;
@@ -98,14 +104,15 @@ pub fn handler(ctx: Context<Unstake>) -> Result<()> {
 
     let cpi_ctx = CpiContext::new_with_signer(
         token_info,
-        Transfer {
+        TransferChecked {
             from: from_info,
+            mint: mint_info,
             to: to_info,
             authority: config_info,
         },
         signer_seeds,
     );
-    token::transfer(cpi_ctx, unstake_amount)?;
+    token_interface::transfer_checked(cpi_ctx, unstake_amount, tandem_decimals)?;
 
     // Update state
     stake_account.staked_amount = 0;

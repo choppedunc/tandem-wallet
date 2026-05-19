@@ -3,7 +3,7 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-tandem_wallet = "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ"
+tandem_wallet = "DLVHJQd8LUbypaoguREZ1sek4E7zeqPHYvw62KceFmQr"
 
 [programs.devnet]
 tandem_wallet = "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ"

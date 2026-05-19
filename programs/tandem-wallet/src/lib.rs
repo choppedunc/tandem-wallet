@@ -8,7 +8,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ");
+declare_id!("DLVHJQd8LUbypaoguREZ1sek4E7zeqPHYvw62KceFmQr");
 
 #[program]
 pub mod tandem_wallet {

@@ -5,6 +5,9 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
+use anchor_spl::token_interface::{
+    Mint as InterfaceMint, TokenAccount as InterfaceTokenAccount, TokenInterface,
+};
 
 #[derive(Accounts)]
 pub struct InitializeProtocol<'info> {
@@ -21,7 +24,7 @@ pub struct InitializeProtocol<'info> {
     pub protocol_config: Box<Account<'info, ProtocolConfig>>,
 
     pub usdc_mint: Box<Account<'info, Mint>>,
-    pub tandem_mint: Box<Account<'info, Mint>>,
+    pub tandem_mint: Box<InterfaceAccount<'info, InterfaceMint>>,
 
     /// USDC ATA owned by the protocol_config PDA — staker rewards accumulate here
     #[account(
@@ -48,8 +51,9 @@ pub struct InitializeProtocol<'info> {
         payer = authority,
         associated_token::mint = tandem_mint,
         associated_token::authority = protocol_config,
+        associated_token::token_program = tandem_token_program,
     )]
-    pub stake_tandem_ata: Box<Account<'info, TokenAccount>>,
+    pub stake_tandem_ata: Box<InterfaceAccount<'info, InterfaceTokenAccount>>,
 
     #[account(
         constraint = program.programdata_address()? == Some(program_data.key()) @ VaultError::OnlyAuthority,
@@ -63,6 +67,7 @@ pub struct InitializeProtocol<'info> {
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
+    pub tandem_token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
 }

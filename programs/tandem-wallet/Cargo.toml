@@ -19,7 +19,7 @@ staking-enabled = []
 
 [dependencies]
 anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
-anchor-spl = { version = "0.30.1", features = ["token", "associated_token"] }
+anchor-spl = { version = "0.30.1", features = ["token", "token_2022", "associated_token"] }
 
 # Pin blake3 below 1.8 to avoid edition2024 requirement (SBF toolchain uses Rust 1.79)
 blake3 = ">=1.3, <1.8"

@@ -1,5 +1,5 @@
 {
-  "address": "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ",
+  "address": "DLVHJQd8LUbypaoguREZ1sek4E7zeqPHYvw62KceFmQr",
   "metadata": {
     "name": "tandem_wallet",
     "version": "0.1.0",
@@ -459,7 +459,7 @@
         },
         {
           "name": "program",
-          "address": "6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ"
+          "address": "DLVHJQd8LUbypaoguREZ1sek4E7zeqPHYvw62KceFmQr"
         },
         {
           "name": "program_data"
@@ -471,6 +471,9 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "tandem_token_program"
         },
         {
           "name": "associated_token_program",
@@ -533,8 +536,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "tandem_token_program"
         },
         {
           "name": "associated_token_program",
@@ -593,8 +595,7 @@
           "name": "tandem_mint"
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "tandem_token_program"
         },
         {
           "name": "associated_token_program",
