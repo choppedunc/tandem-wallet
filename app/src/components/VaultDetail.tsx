@@ -432,8 +432,7 @@ function SetupPanel({
               </div>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-[#075654]">
-              Ask your agent to check vault state, then start spending with
-              Tandem.
+              Start spending with Tandem.
             </p>
             <div className="mt-6 flex justify-end">
               <button
