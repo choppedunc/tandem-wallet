@@ -86,7 +86,6 @@ export const SETUP_CHECKLIST_ITEMS: SetupChecklistItem[] = [
     id: "agent-json-file",
     title: "Give the agent the JSON file",
     body: "Upload the downloaded or manually saved JSON file to the agent, or store it somewhere the agent can access. Click Done after that is handled.",
-    actionLabel: "Open agent tab",
   },
   {
     id: "agent-setup-command",

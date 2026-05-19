@@ -90,6 +90,15 @@ type DirectSendHistoryRow = {
 };
 
 type HistoryRow = ProposalHistoryRow | DirectSendHistoryRow;
+type HistoryFilter = "all" | "allowance" | "approved" | "rejected" | "whitelist";
+
+const HISTORY_FILTERS: { id: HistoryFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "allowance", label: "Allowance" },
+  { id: "approved", label: "Approved" },
+  { id: "rejected", label: "Rejected" },
+  { id: "whitelist", label: "Whitelist" },
+];
 
 const chainHistoryCache = new Map<
   string,
@@ -231,6 +240,33 @@ function DirectSendBadge({
 function historyCardClass(expanded: boolean): string {
   const active = expanded ? "ring-1 ring-line-soft" : "";
   return `w-full border border-line-soft bg-[rgba(3,17,19,0.72)] p-4 text-left transition-colors hover:border-line ${active}`;
+}
+
+function rowMatchesFilter(
+  row: HistoryRow,
+  filter: HistoryFilter,
+  transactions: Record<string, HistoryProposalTransaction>,
+  vault: VaultData
+): boolean {
+  if (filter === "all") return true;
+
+  if (row.kind === "direct-send") {
+    if (filter === "whitelist") return row.transfer.whitelisted;
+    if (filter === "allowance") {
+      return row.transfer.signer.equals(vault.agent) && !row.transfer.whitelisted;
+    }
+    return false;
+  }
+
+  if (filter === "approved" || filter === "rejected") {
+    const status = historyStatus(
+      row.proposal,
+      transactions[row.proposal.pda.toBase58()]
+    );
+    return filter === "approved" ? status === "accepted" : status === "rejected";
+  }
+
+  return false;
 }
 
 function DetailRow({
@@ -394,6 +430,7 @@ export function ProposalHistoryPanel({
   const wallet = useAnchorWallet();
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [filter, setFilter] = useState<HistoryFilter>("all");
   const [transactions, setTransactions] = useState<Record<string, HistoryProposalTransaction>>({});
   const [error, setError] = useState<string | null>(null);
   const [scanWarning, setScanWarning] = useState<string | null>(null);
@@ -581,9 +618,23 @@ export function ProposalHistoryPanel({
     });
   }, [focusedProposal, rows, vault.address]);
 
+  const filteredRows = useMemo(
+    () =>
+      rows?.filter((row) => rowMatchesFilter(row, filter, transactions, vault)) ??
+      null,
+    [filter, rows, transactions, vault]
+  );
+  const noHistoryRows = rows?.length === 0;
+
+  useEffect(() => {
+    if (!expandedItem || !filteredRows) return;
+    if (filteredRows.some((row) => row.id === expandedItem)) return;
+    setExpandedItem(null);
+  }, [expandedItem, filteredRows]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-[0.65rem] uppercase tracking-[0.18em] text-accent-2 font-display">
             Vault history
@@ -592,13 +643,35 @@ export function ProposalHistoryPanel({
             Proposal decisions and direct transactions from this vault.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={refresh}
-          className="border border-line-soft px-3 py-2 text-xs uppercase tracking-wider font-display text-muted hover:border-line hover:text-text"
-        >
-          Refresh
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex flex-wrap gap-1">
+            {HISTORY_FILTERS.map((option) => {
+              const active = filter === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setFilter(option.id)}
+                  className={`border px-3 py-2 text-xs uppercase tracking-wider font-display transition-colors ${
+                    active
+                      ? "border-line bg-[rgba(10,186,181,0.1)] text-text"
+                      : "border-line-soft text-muted hover:border-line hover:text-text"
+                  }`}
+                  aria-pressed={active}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={refresh}
+            className="border border-line-soft px-3 py-2 text-xs uppercase tracking-wider font-display text-muted hover:border-line hover:text-text"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -613,17 +686,21 @@ export function ProposalHistoryPanel({
         </div>
       )}
 
-      {rows === null ? (
+      {filteredRows === null ? (
         <div className="text-muted text-sm font-display tracking-wider uppercase">
           Loading history...
         </div>
-      ) : rows.length === 0 ? (
+      ) : noHistoryRows ? (
         <div className="border border-dashed border-line-soft p-10 text-center text-sm text-muted">
           No vault history yet.
         </div>
+      ) : filteredRows.length === 0 ? (
+        <div className="border border-dashed border-line-soft p-10 text-center text-sm text-muted">
+          No matching history.
+        </div>
       ) : (
         <div className="space-y-2">
-          {rows.map((row) => {
+          {filteredRows.map((row) => {
             const expanded = expandedItem === row.id;
             const toggleExpanded = () =>
               setExpandedItem((current) => (current === row.id ? null : row.id));

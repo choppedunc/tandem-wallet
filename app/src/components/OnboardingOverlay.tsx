@@ -280,7 +280,7 @@ export function OnboardingOverlay({
             <button
               type="button"
               onClick={isFinalStep ? onFinish : onNext}
-              disabled={nextDisabled}
+              disabled={!isFinalStep && nextDisabled}
               className="brackets-accent px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#032b2a] disabled:opacity-50"
             >
               {isFinalStep ? "Finish" : nextLabel}
