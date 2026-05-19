@@ -28,6 +28,27 @@ function readKeypair(filePath) {
   return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(expanded, "utf8"))));
 }
 
+function expandPath(filePath) {
+  return path.resolve(filePath.replace(/^~(?=$|\/)/, os.homedir()));
+}
+
+function isInsideRepo(filePath) {
+  const relative = path.relative(repoRoot, filePath);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function protocolOutputPath(isMainnetDeploy) {
+  if (process.env.PROTOCOL_OUTPUT_PATH) {
+    const outputPath = expandPath(process.env.PROTOCOL_OUTPUT_PATH);
+    if (isMainnetDeploy && isInsideRepo(outputPath)) {
+      throw new Error("PROTOCOL_OUTPUT_PATH must be outside this repo for mainnet initialization");
+    }
+    return outputPath;
+  }
+
+  return isMainnetDeploy ? null : path.join(repoRoot, "devnet-protocol.json");
+}
+
 async function main() {
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com";
   const programId = new PublicKey(
@@ -144,10 +165,11 @@ async function main() {
     treasuryAta: treasuryAta.address.toBase58(),
   };
 
-  fs.writeFileSync(
-    path.join(repoRoot, "devnet-protocol.json"),
-    `${JSON.stringify(state, null, 2)}\n`
-  );
+  const outputPath = protocolOutputPath(isMainnetDeploy);
+  if (outputPath) {
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(outputPath, `${JSON.stringify(state, null, 2)}\n`);
+  }
   console.log(JSON.stringify(state, null, 2));
 }
 

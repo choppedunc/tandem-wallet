@@ -427,6 +427,8 @@ npm run check-admin:devnet --prefix app
 
 Use explicit environment variables for authority, treasury, mint, RPC, and wallet paths. Never commit keypair files or secrets.
 
+`app/scripts/init-protocol.cjs` writes `devnet-protocol.json` by default only for devnet. On mainnet, protocol initialization output is printed to the terminal unless `PROTOCOL_OUTPUT_PATH` is set to a private path outside this repo.
+
 ## Deployment
 
 The app is deployed with Vercel from `app/`.
