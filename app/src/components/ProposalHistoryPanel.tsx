@@ -227,7 +227,7 @@ function DirectSendBadge({
       ? "whitelisted"
       : "within allowance"
     : transfer.signer.equals(vault.human)
-      ? "human send"
+      ? "human withdraw"
       : "direct send";
 
   return (
@@ -388,7 +388,7 @@ function ExpandedDirectSendDetails({
       ? "Agent direct send, whitelist bypass"
       : "Agent allowance send"
     : transfer.signer.equals(vault.human)
-      ? "Human direct send"
+      ? "Human withdraw"
       : "Direct send";
 
   return (
