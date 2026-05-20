@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROGRAM_ID="${PROGRAM_ID:-6L2hon3xSV9saeaGG7cgFG298JGW4vf9jDtF5xg8E6pZ}"
+PROGRAM_ID="${PROGRAM_ID:-DLVHJQd8LUbypaoguREZ1sek4E7zeqPHYvw62KceFmQr}"
 PROGRAM_SO="${PROGRAM_SO:-target/deploy/tandem_wallet.so}"
 RPC_URL="${ANCHOR_PROVIDER_URL:-http://127.0.0.1:8899}"
 WALLET="${ANCHOR_WALLET:-$HOME/.config/solana/id.json}"
