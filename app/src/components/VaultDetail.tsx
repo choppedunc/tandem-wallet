@@ -23,7 +23,7 @@ import {
   shortAddress,
   usdcToRaw,
 } from "@/lib/format";
-import { buildAgentSetupCommand } from "@/lib/agentSetup";
+import { buildAgentSetupMessage } from "@/lib/agentSetup";
 import { explorerTxUrl } from "@/lib/network";
 import {
   SETUP_CHECKLIST_ITEMS,
@@ -1005,9 +1005,9 @@ export function VaultDetail({
     agentSolBalance !== null && agentSolBalance <= 0;
   const needsAgentSetupAttention = needsAgentSolTopUp || !agentCommandCopied;
   const needsFundsAttention = needsUsdcTopUp || needsAgentSolTopUp;
-  const setupCommand = useMemo(
+  const setupMessage = useMemo(
     () =>
-      buildAgentSetupCommand({
+      buildAgentSetupMessage({
         vaultAddress: vault.address.toBase58(),
         appUrl,
       }),
@@ -1136,11 +1136,11 @@ export function VaultDetail({
     }
     if (item === "agent-setup-command") {
       try {
-        await navigator.clipboard.writeText(setupCommand);
+        await navigator.clipboard.writeText(setupMessage);
         markSetupCommandCopied();
       } catch {
         setActionError(
-          "Could not copy the setup command. Open the Agent tab to copy it manually."
+          "Could not copy the setup message. Open the Agent tab to copy it manually."
         );
       }
     }

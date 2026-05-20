@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { NETWORK, PROGRAM_ID, RPC_URL } from "@/lib/network";
 import { shortAddress } from "@/lib/format";
-import { buildAgentSetupCommand } from "@/lib/agentSetup";
+import {
+  buildAgentSetupCommand,
+  buildAgentSetupMessage,
+} from "@/lib/agentSetup";
 import type { VaultData } from "./VaultDetail";
 import { AttentionPulse } from "./AttentionPulse";
 
@@ -117,6 +120,10 @@ export function AgentConnectorPanel({
     () => buildAgentSetupCommand({ vaultAddress, appUrl }),
     [appUrl, vaultAddress]
   );
+  const packageSetupMessage = useMemo(
+    () => buildAgentSetupMessage({ vaultAddress, appUrl }),
+    [appUrl, vaultAddress]
+  );
 
   const mcpConfig = useMemo(
     () =>
@@ -157,21 +164,21 @@ export function AgentConnectorPanel({
   const setupCommandContent = (
     <>
       <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted">
-        Run this setup command in the agent environment. Setup finds the
-        agent keypair file, verifies it matches this vault, and imports the
-        vault details for future payments. It also prints a short guide the
-        agent can follow immediately.
+        Copy this message to your agent. It asks the agent to request the
+        Tandem agent keypair JSON first, then run setup after the file is saved.
+        Setup verifies the keypair matches this vault and imports the vault
+        details for future payments.
       </p>
 
       <div
         className="mb-5 border border-line-soft bg-[rgba(2,10,12,0.52)] p-4 text-sm leading-relaxed text-muted"
         data-onboarding="agent-json-file"
       >
-        If Tandem generated the agent wallet, give your agent the downloaded
-        Tandem keypair file first. If you pasted an existing agent wallet,
-        your agent needs that wallet&apos;s matching Solana keypair file. If
-        the wallet is managed by a platform and your agent cannot access the
-        keypair, create a new Tandem agent wallet instead.
+        Only send the Tandem agent keypair after the agent asks for it. If you
+        pasted an existing agent wallet, the agent needs that wallet&apos;s matching
+        Solana keypair file. If the wallet is managed by a platform and your
+        agent cannot access the keypair, create a new Tandem agent wallet
+        instead.
       </div>
 
       {needsAgentSolTopUp && (
@@ -194,19 +201,34 @@ export function AgentConnectorPanel({
 
       {!commandCopied && (
         <div className="mb-3 flex items-center gap-2 text-sm text-muted">
-          <AttentionPulse label="Copy setup command" />
-          <span>Copy this command and send it to your agent.</span>
+          <AttentionPulse label="Copy setup message" />
+          <span>Copy this message and send it to your agent.</span>
         </div>
       )}
 
       <div data-onboarding="agent-setup-command">
         <CodeBlock
-          label="Setup command"
-          value={packageSetupCommand}
-          copyLabel="Copy command"
+          label="Setup message"
+          value={packageSetupMessage}
+          copyLabel="Copy message"
           onCopy={onCommandCopied}
         />
       </div>
+
+      <details className="mt-4 border border-line-soft p-4">
+        <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
+          <span>Command Only</span>
+          <InfoTooltip label="The setup message above is recommended. This shorter command is kept for agents or environments that only need the CLI command." />
+        </summary>
+        <div className="mt-4">
+          <CodeBlock
+            label="Setup command"
+            value={packageSetupCommand}
+            copyLabel="Copy command"
+            onCopy={onCommandCopied}
+          />
+        </div>
+      </details>
 
       <div className="mt-5 grid gap-2 md:grid-cols-3">
         <div className="border border-line-soft bg-[rgba(3,17,19,0.62)] p-3">
@@ -260,7 +282,7 @@ export function AgentConnectorPanel({
               Connection
             </p>
             <p className="max-w-2xl text-sm leading-relaxed text-muted">
-              Use the setup command to connect your agent to this vault.
+              Use the setup message to connect your agent to this vault.
               Connector details are reference values for custom setups or
               debugging.
             </p>
@@ -278,8 +300,8 @@ export function AgentConnectorPanel({
             data-onboarding="agent-setup-command"
           >
             <summary className="flex cursor-pointer items-center justify-between gap-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-text">
-              <span>Agent Setup Command</span>
-              <InfoTooltip label="Kept here in case you need to reconnect the agent, set it up on another machine, or copy the setup command again." />
+              <span>Agent Setup Message</span>
+              <InfoTooltip label="Kept here in case you need to reconnect the agent, set it up on another machine, or copy the setup message again." />
             </summary>
             <div className="mt-4">
               {setupCommandContent}
@@ -341,8 +363,9 @@ export function AgentConnectorPanel({
               Keep the key local
             </p>
             <p className="text-sm text-muted">
-              Do not paste mainnet private keys into chats, prompts, or repo
-              files.
+              Only share the Tandem agent keypair with the agent environment
+              you want to control this vault. Never send your human wallet
+              secret key.
             </p>
           </div>
           <div className="border border-line-soft p-4">

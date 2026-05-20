@@ -83,15 +83,15 @@ export const SETUP_CHECKLIST_ITEMS: SetupChecklistItem[] = [
     actionLabel: "Top up",
   },
   {
-    id: "agent-json-file",
-    title: "Give the agent the JSON file",
-    body: "Upload the downloaded or manually saved JSON file to the agent, or store it somewhere the agent can access. Click Done after that is handled.",
+    id: "agent-setup-command",
+    title: "Send the setup message",
+    body: "Copy this message, paste it into your agent, and wait for the agent to ask for the Tandem agent keypair JSON.",
+    actionLabel: "Copy message",
   },
   {
-    id: "agent-setup-command",
-    title: "Send the setup command",
-    body: "Copy this command, paste it into your agent, then come back and click Done.",
-    actionLabel: "Copy command",
+    id: "agent-json-file",
+    title: "Send the Tandem agent keypair",
+    body: "When the agent asks, upload the downloaded or manually saved Tandem agent keypair JSON. Click Done after the agent confirms setup and vault state.",
   },
 ];
 

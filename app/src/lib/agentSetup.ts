@@ -1,7 +1,8 @@
 import { PROGRAM_ID, RPC_URL } from "./network";
 
-const KEYPAIR_DISCOVERY_COMMAND =
-  'KEYPAIR_PATH="${TANDEM_AGENT_KEYPAIR:-$(find "$PWD" "$PWD/web" "$HOME/Downloads" "$HOME/.tandem" -maxdepth 1 \\( -name "tandem-agent-keypair*.json" -o -name "agent-keypair.json" \\) -type f -print -quit 2>/dev/null)}"; test -n "$KEYPAIR_PATH" || { echo "Tandem agent keypair file not found. Save tandem-agent-keypair*.json in the current folder, ./web, ~/Downloads, or ~/.tandem."; exit 1; };';
+function shellQuote(value: string) {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
 
 export function buildAgentSetupCommand({
   vaultAddress,
@@ -11,12 +12,34 @@ export function buildAgentSetupCommand({
   appUrl: string;
 }) {
   return [
-    KEYPAIR_DISCOVERY_COMMAND,
     "npx -y @tandemwallet/agent@latest setup",
-    `--vault ${vaultAddress}`,
-    '--agent-keypair "$KEYPAIR_PATH"',
-    `--rpc-url ${RPC_URL}`,
-    `--program-id ${PROGRAM_ID.toBase58()}`,
-    `--app-url ${appUrl}`,
+    `--vault ${shellQuote(vaultAddress)}`,
+    `--rpc-url ${shellQuote(RPC_URL)}`,
+    `--program-id ${shellQuote(PROGRAM_ID.toBase58())}`,
+    `--app-url ${shellQuote(appUrl)}`,
   ].join(" ");
+}
+
+export function buildAgentSetupMessage({
+  vaultAddress,
+  appUrl,
+}: {
+  vaultAddress: string;
+  appUrl: string;
+}) {
+  const setupCommand = buildAgentSetupCommand({ vaultAddress, appUrl });
+
+  return [
+    "Set up my Tandem Vault.",
+    "",
+    "First ask me for the Tandem agent keypair JSON file. After I send it, save it as tandem-agent-keypair.json in your working directory or ~/.tandem, then run:",
+    "",
+    setupCommand,
+    "",
+    "After setup completes, run:",
+    "",
+    "npx -y @tandemwallet/agent@latest state",
+    "",
+    "Confirm the vault balance, agent SOL balance, spending limit, and paused status. Never ask for my human wallet private key.",
+  ].join("\n");
 }
