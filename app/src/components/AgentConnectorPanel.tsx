@@ -165,7 +165,8 @@ export function AgentConnectorPanel({
     <>
       <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted">
         Copy this message to your agent. It asks the agent to request the
-        Tandem agent keypair JSON first, then run setup after the file is saved.
+        Tandem agent keypair JSON first, then run setup after the file is
+        uploaded.
         Setup verifies the keypair matches this vault and imports the vault
         details for future payments.
       </p>
